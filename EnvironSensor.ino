@@ -82,10 +82,37 @@ CCS811 g_air_quality_sensor(CCS811_ADDR);
 WiFiClient g_WiFi_client;
 
 // The MQTT Client.
-Adafruit_MQTT_Client g_MQTT_client(&g_WiFi_client, kMQTTBroker, kMQTTPort, /*username=*/"", /*key=*/"");
+Adafruit_MQTT_Client g_MQTT_client(&g_WiFi_client, kMQTTBroker,
+                                   kMQTTPort, /*username=*/"", /*key=*/"");
 
 // Object that publishes a specific topic to the MQTT broker.
-Adafruit_MQTT_Publish g_MQTT_environ_publisher(&g_MQTT_client, kMQTTTopic, /*QOS=*/1);
+Adafruit_MQTT_Publish g_MQTT_environ_publisher(&g_MQTT_client, kMQTTTopic,
+                                               /*QOS=*/1);
+
+// The number of sensor readings attempted (but maybe not logged).
+int g_num_readings = 0;
+
+// The number of times we have attempted to connected to the WiFi network.
+int g_num_net_connects = 0;
+
+// The number of MQTT publish errors since connecting to WiFi.
+int g_num_publish_errors = 0;
+
+/**
+ * Return a debug string (or empty) providing additional debug info.
+ */
+String GetDebugInfo() {
+  return "[reading:" + String(g_num_readings) +
+         ", connection:" + String(g_num_net_connects) +
+         ", pub_err:" + String(g_num_publish_errors) +
+         ']';
+}
+
+// Convert Fahrenheit to Celsius.
+template <class T>
+T FtoC(T F) {
+  return (F-32.0f) / 1.8f;
+}
 
 /**
  * Retrieve the temperature and humidity from the sensor and write them to
@@ -119,7 +146,7 @@ bool getAirQuality(EnvironmentalData* data) {
   // Set sensor humidity/temp to improve accuracy.
   if (data->have_temp) {
     g_air_quality_sensor.setEnvironmentalData(data->humidity,
-                                             (data->temperature-32.0f) / 1.8f);
+                                             FtoC(data->temperature));
   }
   g_air_quality_sensor.readAlgorithmResults();
   data->eCO2 = g_air_quality_sensor.getCO2();
@@ -132,40 +159,49 @@ bool getAirQuality(EnvironmentalData* data) {
  * Determine if the device is currently connected to the WiFi network.
  */
 bool WiFiConnected() {
-  switch (WiFi.status()) {
-    case WL_CONNECTED:
-    case WL_IDLE_STATUS:
-      return true;
-    case WL_NO_SHIELD:
-    case WL_NO_SSID_AVAIL:
-    case WL_SCAN_COMPLETED:
-    case WL_CONNECT_FAILED:
-    case WL_CONNECTION_LOST:
-    case WL_DISCONNECTED:
-    default:
-      return false;
-  }
+  return WiFi.status() == WL_CONNECTED;
 }
 
 /**
- * Get the environmental data from all sensors and write to |data|.
- * 
- * Return true if successful, false if not.
+ * Returns a WiFi status string for debugging purposes.
  */
-bool getData(EnvironmentalData* data) {
-  return getTempHumidity(data) || getAirQuality(data);
+const __FlashStringHelper* GetWiFiStatusString(int status) {
+  switch (status) {
+    case WL_CONNECTED:
+      return F("WL_CONNECTED");       // assigned when connected to a WiFi network
+    case WL_NO_SHIELD:
+      return F("WL_NO_SHIELD");       // assigned when no WiFi shield is present;
+    case WL_IDLE_STATUS:
+      return F("WL_IDLE_STATUS");     // it is a temporary status assigned when WiFi.begin() is
+                                      // called and remains active until the number of attempts
+                                      // expires (resulting in WL_CONNECT_FAILED) or a connection
+                                      // is established (resulting in WL_CONNECTED);
+    case WL_NO_SSID_AVAIL:
+      return F("WL_NO_SSID_AVAIL");   // assigned when no SSID are available;
+    case WL_SCAN_COMPLETED:
+      return F("WL_SCAN_COMPLETED");  // assigned when the scan networks is completed;
+    case WL_CONNECT_FAILED:
+      return F("WL_CONNECT_FAILED");  // assigned when the connection fails for all the attempts;
+    case WL_CONNECTION_LOST:
+      return F("WL_CONNECTION_LOST"); // assigned when the connection is lost;
+    case WL_DISCONNECTED:
+      return F("WL_DISCONNECTED");    // assigned when disconnected from a network;
+  }
+  return F("Unknown");
 }
 
 /**
  * Connect to the WiFi network.
- * 
+ *
  * The radio takes a little while to connect, so the first call will
  * likely fail.
- * 
- * Return true if connected, false if not.
+ *
+ * Return the current connection status (WL_CONNECTED means connected).
  */
-bool ConnectToWiFi() {
+int ConnectToWiFi() {
   const int kMaxAttempts = 3;
+
+  g_num_net_connects++;
 
   Serial.print("Attempting to connect to WPA SSID: ");
   Serial.println(kSSID);
@@ -176,7 +212,17 @@ bool ConnectToWiFi() {
     status = WiFi.status();
   }
 
-  return status == WL_CONNECTED;
+  return status;
+}
+
+/**
+ * Get the environmental data from all sensors and write to |data|.
+ * 
+ * Return true if successful, false if not.
+ */
+bool getData(EnvironmentalData* data) {
+  g_num_readings++;
+  return getTempHumidity(data) || getAirQuality(data);
 }
 
 /**
@@ -186,49 +232,58 @@ bool ConnectToWiFi() {
  */
 bool writeData(const EnvironmentalData& data) {
   if (!WiFiConnected()) {
-    if (g_MQTT_client.connected())
-      g_MQTT_client.disconnect();
+    g_num_publish_errors = 0;
+    if (g_MQTT_client.connected() && !g_MQTT_client.disconnect()) {
+      // Disconnecting involves sending a disconnect packet, which can't be done,
+      // but it also resets the client to a disconnected state.
+      Serial.println("Error disconnecting from MQTT server" + GetDebugInfo() + '.');
+    }
 
-    if (!ConnectToWiFi()) {
-      Serial.println("Unable to connect to WiFi network.");
+    int wifi_status = ConnectToWiFi();
+    if (wifi_status != WL_CONNECTED) {
+      Serial.println("Unable to connect to WiFi network" + GetDebugInfo() +
+                     ": " + GetWiFiStatusString(wifi_status) + '.');
       return false;
     }
     Serial.println("WiFi is connected.");
   }
 
-  int ret = -1;
-  if ((ret = g_MQTT_client.connect()) != 0) {
-    Serial.println(g_MQTT_client.connectErrorString(ret));
-    return false;
+  if (!g_MQTT_client.connected()) {
+    int mqtt_client_status = g_MQTT_client.connect();
+    if (mqtt_client_status != 0) {
+      Serial.print("MQTT client connect error" + GetDebugInfo() + ": ");
+      Serial.println(g_MQTT_client.connectErrorString(mqtt_client_status));
+      return false;
+    }
   }
 
-  Serial.println("MQTT client connected.");
-  
   // Format the message payload in InfluxDB format.
-  String msg = String("environment,location=") + kSensorLocation;
+  String mqtt_message = String("environment,location=") + kSensorLocation;
 
   if (data.have_temp) {
-    msg +=
+    mqtt_message +=
       String(" temperature=") + String(data.temperature, 2) +
-      String(",humidity=") + String(data.humidity, 2);
+      String(",humidity=") + String(data.humidity, 1);
   }
   if (data.have_quality) {
     if (data.have_temp)
-      msg += ",";
+      mqtt_message += ",";
     else
-      msg += " ";
-    msg +=
+      mqtt_message += " ";
+    mqtt_message +=
       String("CO2=") + String(data.eCO2) +
       String(",TVOC=") + String(data.TVOC);
   }
 
-  Serial.println(msg);
-
-  if (!g_MQTT_environ_publisher.publish(msg.c_str())) {
-    Serial.println("Failed to publish.");
+  if (!g_MQTT_environ_publisher.publish(mqtt_message.c_str())) {
+    g_num_publish_errors++;
+    Serial.println("Failed to publish" + GetDebugInfo() + '.');
     return false;
   }
-  
+
+  Serial.print("MQTT client logged" + GetDebugInfo() + ": ");
+  Serial.println(mqtt_message);
+
   return true;
 }
 
@@ -254,9 +309,9 @@ void loop() {
   EnvironmentalData data;
   if (getData(&data)) {
     if (writeData(data)) {
-      Serial.println("Successfully logged environmental data.");
+      //Serial.println("Successfully logged environmental data.");
     } else {
-      Serial.println("ERROR writing environmental data.");
+      //Serial.println("ERROR writing environmental data.");
     }
   } else {
     Serial.println("ERROR getting environmental data.");
