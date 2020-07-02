@@ -99,63 +99,6 @@ int g_num_net_connects = 0;
 int g_num_publish_errors = 0;
 
 /**
- * Return a debug string (or empty) providing additional debug info.
- */
-String GetDebugInfo() {
-  return "[reading:" + String(g_num_readings) +
-         ", connection:" + String(g_num_net_connects) +
-         ", pub_err:" + String(g_num_publish_errors) +
-         ']';
-}
-
-// Convert Fahrenheit to Celsius.
-template <class T>
-T FtoC(T F) {
-  return (F-32.0f) / 1.8f;
-}
-
-/**
- * Retrieve the temperature and humidity from the sensor and write them to
- * |data|.
- * 
- * Return true if successful, false if not.
- */
-bool getTempHumidity(EnvironmentalData* data) {
-  if (g_temp_humidity_sensor.update() != 1) {
-    // If the update failed, try delaying for RHT_READ_INTERVAL_MS ms before
-    // trying again.
-    delay(RHT_READ_INTERVAL_MS);
-    return false;
-  }
-
-  data->temperature = g_temp_humidity_sensor.tempF();
-  data->humidity = g_temp_humidity_sensor.humidity();
-  data->have_temp = true;
-
-  return true;
-}
-
-/**
- * Retrieve the air quality from the sensor and write them to |data|.
- * 
- * Return true if successful, false if not.
- */
-bool getAirQuality(EnvironmentalData* data) {
-  if (!g_air_quality_sensor.dataAvailable())
-    return false;
-  // Set sensor humidity/temp to improve accuracy.
-  if (data->have_temp) {
-    g_air_quality_sensor.setEnvironmentalData(data->humidity,
-                                             FtoC(data->temperature));
-  }
-  g_air_quality_sensor.readAlgorithmResults();
-  data->eCO2 = g_air_quality_sensor.getCO2();
-  data->TVOC = g_air_quality_sensor.getTVOC();
-  data->have_quality = true;
-  return true;
-}
-
-/**
  * Determine if the device is currently connected to the WiFi network.
  */
 bool WiFiConnected() {
@@ -213,6 +156,63 @@ int ConnectToWiFi() {
   }
 
   return status;
+}
+
+/**
+ * Return a debug string (or empty) providing additional debug info.
+ */
+String GetDebugInfo() {
+  return "[reading:" + String(g_num_readings) +
+         ", connection:" + String(g_num_net_connects) +
+         ", pub_err:" + String(g_num_publish_errors) +
+         ']';
+}
+
+// Convert Fahrenheit to Celsius.
+template <class T>
+T FtoC(T F) {
+  return (F-32.0f) / 1.8f;
+}
+
+/**
+ * Retrieve the temperature and humidity from the sensor and write them to
+ * |data|.
+ * 
+ * Return true if successful, false if not.
+ */
+bool getTempHumidity(EnvironmentalData* data) {
+  if (g_temp_humidity_sensor.update() != 1) {
+    // If the update failed, try delaying for RHT_READ_INTERVAL_MS ms before
+    // trying again.
+    delay(RHT_READ_INTERVAL_MS);
+    return false;
+  }
+
+  data->temperature = g_temp_humidity_sensor.tempF();
+  data->humidity = g_temp_humidity_sensor.humidity();
+  data->have_temp = true;
+
+  return true;
+}
+
+/**
+ * Retrieve the air quality from the sensor and write them to |data|.
+ * 
+ * Return true if successful, false if not.
+ */
+bool getAirQuality(EnvironmentalData* data) {
+  if (!g_air_quality_sensor.dataAvailable())
+    return false;
+  // Set sensor humidity/temp to improve accuracy.
+  if (data->have_temp) {
+    g_air_quality_sensor.setEnvironmentalData(data->humidity,
+                                             FtoC(data->temperature));
+  }
+  g_air_quality_sensor.readAlgorithmResults();
+  data->eCO2 = g_air_quality_sensor.getCO2();
+  data->TVOC = g_air_quality_sensor.getTVOC();
+  data->have_quality = true;
+  return true;
 }
 
 /**
