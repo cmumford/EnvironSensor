@@ -226,6 +226,31 @@ bool getData(EnvironmentalData* data) {
 }
 
 /**
+ * Returns a MQTT message payload in influxdb format.
+ */
+String formatMQTTMessage(const EnvironmentalData& data) {
+  // Format the message payload in InfluxDB format.
+  String mqtt_message = String("environment,location=") + kSensorLocation;
+
+  if (data.have_temp) {
+    mqtt_message +=
+      String(" temperature=") + String(data.temperature, 2) +
+      String(",humidity=") + String(data.humidity, 1);
+  }
+  if (data.have_quality) {
+    if (data.have_temp)
+      mqtt_message += ",";
+    else
+      mqtt_message += " ";
+    mqtt_message +=
+      String("CO2=") + String(data.eCO2) +
+      String(",TVOC=") + String(data.TVOC);
+  }
+
+  return mqtt_message;
+}
+
+/**
  * Log the enrivonmental data to the MQTT server.
  * 
  * Return true if successful, false if not.
@@ -257,23 +282,7 @@ bool writeData(const EnvironmentalData& data) {
     }
   }
 
-  // Format the message payload in InfluxDB format.
-  String mqtt_message = String("environment,location=") + kSensorLocation;
-
-  if (data.have_temp) {
-    mqtt_message +=
-      String(" temperature=") + String(data.temperature, 2) +
-      String(",humidity=") + String(data.humidity, 1);
-  }
-  if (data.have_quality) {
-    if (data.have_temp)
-      mqtt_message += ",";
-    else
-      mqtt_message += " ";
-    mqtt_message +=
-      String("CO2=") + String(data.eCO2) +
-      String(",TVOC=") + String(data.TVOC);
-  }
+  const String mqtt_message = formatMQTTMessage(data);
 
   if (!g_MQTT_environ_publisher.publish(mqtt_message.c_str())) {
     g_num_publish_errors++;
