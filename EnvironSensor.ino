@@ -92,18 +92,13 @@ Adafruit_MQTT_Publish g_MQTT_environ_publisher(&g_MQTT_client, kMQTTTopic,
 // The number of sensor readings attempted (but maybe not logged).
 int g_num_readings = 0;
 
-// The number of times we have attempted to connected to the WiFi network.
-int g_num_net_connects = 0;
+// The number of times the WiFi network is not connected when
+// MQTT logging is attempted.
+int g_num_wifi_errors = 0;
 
 // The number of MQTT publish errors since connecting to WiFi.
 int g_num_publish_errors = 0;
 
-/**
- * Determine if the device is currently connected to the WiFi network.
- */
-bool WiFiConnected() {
-  return WiFi.status() == WL_CONNECTED;
-}
 
 /**
  * Returns a WiFi status string for debugging purposes.
@@ -134,36 +129,11 @@ const __FlashStringHelper* GetWiFiStatusString(int status) {
 }
 
 /**
- * Connect to the WiFi network.
- *
- * The radio takes a little while to connect, so the first call will
- * likely fail.
- *
- * Return the current connection status (WL_CONNECTED means connected).
- */
-int ConnectToWiFi() {
-  const int kMaxAttempts = 3;
-
-  g_num_net_connects++;
-
-  Serial.print("Attempting to connect to WPA SSID: ");
-  Serial.println(kSSID);
-  int status = WiFi.begin(kSSID, kPASS);
-  for (int attempt = 0; status != WL_CONNECTED && attempt < kMaxAttempts; attempt++) {
-    // wait 10 seconds for the connection.
-    delay(10 * 1000);
-    status = WiFi.status();
-  }
-
-  return status;
-}
-
-/**
  * Return a debug string (or empty) providing additional debug info.
  */
 String GetDebugInfo() {
   return "[reading:" + String(g_num_readings) +
-         ", connection:" + String(g_num_net_connects) +
+         ", wifi_err:" + String(g_num_wifi_errors) +
          ", pub_err:" + String(g_num_publish_errors) +
          ']';
 }
@@ -228,7 +198,7 @@ bool getData(EnvironmentalData* data) {
 /**
  * Returns a MQTT message payload in influxdb format.
  */
-String formatMQTTMessage(const EnvironmentalData& data) {
+String createMQTTMessage(const EnvironmentalData& data) {
   // Format the message payload in InfluxDB format.
   String mqtt_message = String("environment,location=") + kSensorLocation;
 
@@ -256,21 +226,15 @@ String formatMQTTMessage(const EnvironmentalData& data) {
  * Return true if successful, false if not.
  */
 bool writeData(const EnvironmentalData& data) {
-  if (!WiFiConnected()) {
-    g_num_publish_errors = 0;
-    if (g_MQTT_client.connected() && !g_MQTT_client.disconnect()) {
-      // Disconnecting involves sending a disconnect packet, which can't be done,
-      // but it also resets the client to a disconnected state.
-      Serial.println("Error disconnecting from MQTT server" + GetDebugInfo() + '.');
-    }
-
-    int wifi_status = ConnectToWiFi();
-    if (wifi_status != WL_CONNECTED) {
-      Serial.println("Unable to connect to WiFi network" + GetDebugInfo() +
-                     ": " + GetWiFiStatusString(wifi_status) + '.');
-      return false;
-    }
-    Serial.println("WiFi is connected.");
+  int wifi_status = WiFi.status();
+  if (wifi_status != WL_CONNECTED) {
+    Serial.print("Not connected to WiFi");
+    Serial.print(GetDebugInfo());
+    Serial.print(": ");
+    Serial.print(GetWiFiStatusString(wifi_status));
+    Serial.println(".");
+    g_num_wifi_errors++;
+    return false;
   }
 
   if (!g_MQTT_client.connected()) {
@@ -282,7 +246,7 @@ bool writeData(const EnvironmentalData& data) {
     }
   }
 
-  const String mqtt_message = formatMQTTMessage(data);
+  const String mqtt_message = createMQTTMessage(data);
 
   if (!g_MQTT_environ_publisher.publish(mqtt_message.c_str())) {
     g_num_publish_errors++;
@@ -290,7 +254,9 @@ bool writeData(const EnvironmentalData& data) {
     return false;
   }
 
-  Serial.print("MQTT client logged" + GetDebugInfo() + ": ");
+  Serial.print("MQTT client logged");
+  Serial.print(GetDebugInfo());
+  Serial.print(": ");
   Serial.println(mqtt_message);
 
   return true;
@@ -312,6 +278,9 @@ void setup() {
 
   // Initialize air quality sensor.
   g_air_quality_sensor.begin();
+
+  // Initiate the connection to WiFi.
+  WiFi.begin(kSSID, kPASS);
 }
 
 void loop() {
