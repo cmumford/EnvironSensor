@@ -146,7 +146,7 @@ float FtoC(float F) {
 /**
  * Retrieve the temperature and humidity from the sensor and write them to
  * |data|.
- * 
+ *
  * Return true if successful, false if not.
  */
 bool getTempHumidity(EnvironmentalData* data) {
@@ -166,7 +166,7 @@ bool getTempHumidity(EnvironmentalData* data) {
 
 /**
  * Retrieve the air quality from the sensor and write them to |data|.
- * 
+ *
  * Return true if successful, false if not.
  */
 bool getAirQuality(EnvironmentalData* data) {
@@ -186,7 +186,7 @@ bool getAirQuality(EnvironmentalData* data) {
 
 /**
  * Get the environmental data from all sensors and write to |data|.
- * 
+ *
  * Return true if successful, false if not.
  */
 bool getData(EnvironmentalData* data) {
@@ -221,7 +221,7 @@ String createMQTTMessage(const EnvironmentalData& data) {
 
 /**
  * Log the enrivonmental data to the MQTT server.
- * 
+ *
  * Return true if successful, false if not.
  */
 bool writeData(const EnvironmentalData& data) {
@@ -277,7 +277,7 @@ void setup() {
 
   // Inialize I2C Hardware
   Wire.begin();
-  
+
   // Initialize temperature/humidity sensor.
   g_temp_humidity_sensor.begin(RHT03_DATA_PIN);
 
