@@ -139,8 +139,7 @@ String GetDebugInfo() {
 }
 
 // Convert Fahrenheit to Celsius.
-template <class T>
-T FtoC(T F) {
+float FtoC(float F) {
   return (F-32.0f) / 1.8f;
 }
 
