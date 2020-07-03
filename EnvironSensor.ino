@@ -269,6 +269,12 @@ void setup() {
     ; // wait for serial port to connect. Needed for native USB port only.
   }
 
+  Serial.print("Starting environmental sensor ");
+  Serial.print(kMQTTTopic);
+  Serial.print(", location: ");
+  Serial.print(kSensorLocation);
+  Serial.println(".");
+
   // Inialize I2C Hardware
   Wire.begin();
   
