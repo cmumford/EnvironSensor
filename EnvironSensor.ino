@@ -24,18 +24,21 @@
 
 #include <SparkFun_RHT03.h> // Temperature/Humidity sensor library.
 #include <SparkFunCCS811.h> // Air quality sensor library.
-#include <WiFi.h>
 #include <Wire.h>
 #include <Adafruit_MQTT_FONA.h>
 #include <Adafruit_MQTT.h>
 #include <Adafruit_MQTT_Client.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
 
 #if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_SAMD_NANO_33_IOT) || defined(ARDUINO_AVR_UNO_WIFI_REV2)
   #include <WiFiNINA.h>
 #elif defined(ARDUINO_SAMD_MKR1000)
   #include <WiFi101.h>
-#elif defined(ARDUINO_ESP8266_ESP12)
+#elif defined(ARDUINO_ESP8266_ESP12) || defined(ARDUINO_ESP8266_NODEMCU)
   #include <ESP8266WiFi.h>
+#else
+  #include <WiFi.h>
 #endif
 
 #include "arduino_secrets.h"
@@ -45,16 +48,39 @@ namespace {
 // Delay between readings in milliseconds.
 const unsigned long kSensorReadingDelay = 60 * 1000;
 
+#define SENSOR_RHT03   0  // A Temp/humidity sensor.
+#define SENSOR_BME280  1  // A Temp/humidity/pressure sensor.
+#define SENSOR_CCS811  0  // An air quality sensor (CO2/VOC).
+
+
+#if SENSOR_RHT03
+
 // RHT03 data pin.
 const int RHT03_DATA_PIN = 23;
+
+#endif //  SENSOR_RHT03
+
+#if SENSOR_BME280
+
+const float kSeaLevelPressureHPA = 1013.25f;
+
+// Can be changed with a solder jumper.
+const int BME280_ADDR = 0x76;
+
+#endif  // SENSOR_BME280
+
+
+#if SENSOR_CCS811
 
 // The I2C bus address for the air quality sensor.
 // Default is 0x5B. Desolder the "ADDR" jumper to switch sensor to 0x5A.
 const int CCS811_ADDR = 0x5B;
 
-const String kSensorLocation = "hallway";
-const char kSSID[] = SECRET_SSID;
-const char kPASS[] = SECRET_PASS;
+#endif  // SENSOR_CCS811
+
+const String kSensorLocation = "office";
+const char* kSSID = SECRET_SSID;
+const char* kPASS = SECRET_PASS;
 const char kMQTTBroker[] = "10.0.9.116";
 const int  kMQTTPort = 1883;
 const char kMQTTTopic[] = "sensors/inside_sensor_1";
@@ -65,18 +91,35 @@ const char kMQTTTopic[] = "sensors/inside_sensor_1";
 struct EnvironmentalData {
   bool have_temp = false;    // True if the temp/humidity values are valid.
   bool have_quality = false; // True if the air quality values are valid.
+  bool have_pressures = false; // True if air pressures are valud.
   float humidity = 0.0f;     // The air relative humidity in % (0..100).
   float temperature = 0.0f;  // The air temperature in °F.
   int eCO2 = 0;              // Estimated carbon dioxide level (ppm).
   int TVOC = 0;              // Total volatile organic compounds (ppb).
+  float altitude = 0.0f;     // Altitude above sea level (ft.).
+  float pressure = 0.0f;     // Air pressure (hPA).
 };
+
+#if SENSOR_RHT03
 
 // The global object to interract with the temperature/humidity sensor.
 RHT03 g_temp_humidity_sensor;
 
+#endif  // SENSOR_RHT03
+
+#if SENSOR_BME280
+
+Adafruit_BME280 g_BME280;
+
+#endif  // SENSOR_BME280
+
+#if SENSOR_CCS811
+
 // The global object to interract with the air quality sensor.
 // Sensor is not accurate until after 20 minutes of runtime.
 CCS811 g_air_quality_sensor(CCS811_ADDR);
+
+#endif  // SENSOR_CCS811
 
 // The main object connecting to the WiFi network.
 WiFiClient g_WiFi_client;
@@ -143,6 +186,16 @@ float FtoC(float F) {
   return (F-32.0f) / 1.8f;
 }
 
+// Convert Celsius to Fahrenheit.
+float CtoF(float C) {
+  return C * 9.0f / 5.0f + 32.0f;
+}
+
+// Convert meters to feet.
+float MtoF(float M) {
+  return M * 3.28084f;
+}
+
 /**
  * Retrieve the temperature and humidity from the sensor and write them to
  * |data|.
@@ -150,18 +203,25 @@ float FtoC(float F) {
  * Return true if successful, false if not.
  */
 bool getTempHumidity(EnvironmentalData* data) {
+  data->have_temp = false;
+
+#if SENSOR_RHT03
   if (g_temp_humidity_sensor.update() != 1) {
     // If the update failed, try delaying for RHT_READ_INTERVAL_MS ms before
     // trying again.
     delay(RHT_READ_INTERVAL_MS);
     return false;
   }
-
   data->temperature = g_temp_humidity_sensor.tempF();
   data->humidity = g_temp_humidity_sensor.humidity();
   data->have_temp = true;
+#elif SENSOR_BME280
+  data->temperature =  CtoF(g_BME280.readTemperature());
+  data->humidity = g_BME280.readHumidity();
+  data->have_temp = true;
+#endif
 
-  return true;
+  return data->have_temp;
 }
 
 /**
@@ -170,6 +230,9 @@ bool getTempHumidity(EnvironmentalData* data) {
  * Return true if successful, false if not.
  */
 bool getAirQuality(EnvironmentalData* data) {
+  data->have_quality = false;
+
+#if SENSOR_CCS811
   if (!g_air_quality_sensor.dataAvailable())
     return false;
   // Set sensor humidity/temp to improve accuracy.
@@ -181,7 +244,24 @@ bool getAirQuality(EnvironmentalData* data) {
   data->eCO2 = g_air_quality_sensor.getCO2();
   data->TVOC = g_air_quality_sensor.getTVOC();
   data->have_quality = true;
-  return true;
+#endif  // #if SENSOR_CCS811
+
+  return data->have_quality;
+}
+
+/**
+ * Read atmospheric pressures.
+ */
+bool getPressures(EnvironmentalData* data) {
+  data->have_pressures = false;
+
+#if SENSOR_BME280
+  data->altitude =  MtoF(g_BME280.readAltitude(kSeaLevelPressureHPA));
+  data->pressure = g_BME280.readPressure() / 100.0f;
+  data->have_pressures = true;
+#endif
+
+  return data->have_pressures;
 }
 
 /**
@@ -191,7 +271,16 @@ bool getAirQuality(EnvironmentalData* data) {
  */
 bool getData(EnvironmentalData* data) {
   g_num_readings++;
-  return getTempHumidity(data) || getAirQuality(data);
+  int count = 0;
+
+  if (getTempHumidity(data))
+    count++;
+  if (getAirQuality(data))
+    count++;
+  if (getPressures(data))
+    count++;
+
+  return count != 0;
 }
 
 /**
@@ -201,19 +290,33 @@ String createMQTTMessage(const EnvironmentalData& data) {
   // Format the message payload in InfluxDB format.
   String mqtt_message = String("environment,location=") + kSensorLocation;
 
+  bool have_value = false;
   if (data.have_temp) {
     mqtt_message +=
       String(" temperature=") + String(data.temperature, 2) +
       String(",humidity=") + String(data.humidity, 1);
+    have_value = true;
   }
   if (data.have_quality) {
-    if (data.have_temp)
+    if (have_value)
       mqtt_message += ",";
     else
       mqtt_message += " ";
     mqtt_message +=
       String("CO2=") + String(data.eCO2) +
       String(",TVOC=") + String(data.TVOC);
+    have_value = true;
+  }
+
+  if (data.have_pressures) {
+    if (have_value)
+      mqtt_message += ",";
+    else
+      mqtt_message += " ";
+    mqtt_message +=
+      String("altitude=") + String(data.altitude) +
+      String(",pressure=") + String(data.pressure);
+    have_value = true;
   }
 
   return mqtt_message;
@@ -247,7 +350,8 @@ bool writeData(const EnvironmentalData& data) {
 
   const String mqtt_message = createMQTTMessage(data);
 
-  if (!g_MQTT_environ_publisher.publish(mqtt_message.c_str())) {
+  bool published = g_MQTT_environ_publisher.publish(mqtt_message.c_str());
+  if (!published) {
     g_num_publish_errors++;
     Serial.println("Failed to publish" + GetDebugInfo() + '.');
     return false;
@@ -269,6 +373,10 @@ void setup() {
     ; // wait for serial port to connect. Needed for native USB port only.
   }
 
+  for (int i = 0; i < 20; i++) {
+    Serial.println();
+    delay(10);
+  }
   Serial.print("Starting environmental sensor ");
   Serial.print(kMQTTTopic);
   Serial.print(", location: ");
@@ -278,14 +386,30 @@ void setup() {
   // Inialize I2C Hardware
   Wire.begin();
 
+#if SENSOR_RHT03
   // Initialize temperature/humidity sensor.
   g_temp_humidity_sensor.begin(RHT03_DATA_PIN);
+#endif
 
+#if SENSOR_CCS811
   // Initialize air quality sensor.
   g_air_quality_sensor.begin();
+#endif  // SENSOR_CCS811
+
+#if SENSOR_BME280
+  if (!g_BME280.begin(BME280_ADDR)) {
+    Serial.println("Could not find a BME280 sensor.");
+  }
+#endif  // SENSOR_BME280
+
+#if defined(ARDUINO_ESP8266_ESP12) || defined(ARDUINO_ESP8266_NODEMCU)
+  WiFi.mode(WIFI_STA);
+#endif
 
   // Initiate the connection to WiFi.
-  WiFi.begin(kSSID, kPASS);
+  WiFi.begin(const_cast<char*>(kSSID), const_cast<char*>(kPASS));
+
+  Serial.println("Setup complete");
 }
 
 void loop() {
