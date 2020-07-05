@@ -83,7 +83,7 @@ const char* kSSID = SECRET_SSID;
 const char* kPASS = SECRET_PASS;
 const char kMQTTBroker[] = "10.0.9.116";
 const int  kMQTTPort = 1883;
-const char kMQTTTopic[] = "sensors/inside_sensor_1";
+const char kMQTTTopic[] = "sensors/inside";
 
 /**
  * The data read from the various environmental sensors.
