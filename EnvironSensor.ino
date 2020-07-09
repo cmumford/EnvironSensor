@@ -354,6 +354,12 @@ bool writeData(const EnvironmentalData& data) {
   if (!published) {
     g_num_publish_errors++;
     Serial.println("Failed to publish" + GetDebugInfo() + '.');
+    // There is currently a bug (in either Mosquitto or on our  end) where
+    // the MQTT server (Mosquitto) retransmits the ACK packet. This means
+    // our end receives the same ACK packet twice and the packet ID's are
+    // forever out of sync. Disconnecting here will force a reconnect and
+    // get these ID's back in sync (until the next time).
+    g_MQTT_client.disconnect();
     return false;
   }
 
