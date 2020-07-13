@@ -328,32 +328,38 @@ String createMQTTMessage(const EnvironmentalData& data) {
  * Return true if successful, false if not.
  */
 bool writeData(const EnvironmentalData& data) {
+  const String mqtt_message = createMQTTMessage(data);
+
   int wifi_status = WiFi.status();
   if (wifi_status != WL_CONNECTED) {
     Serial.print("Not connected to WiFi");
     Serial.print(GetDebugInfo());
     Serial.print(": ");
     Serial.print(GetWiFiStatusString(wifi_status));
-    Serial.println(".");
+    Serial.println(": " + mqtt_message + '.');
     g_num_wifi_errors++;
     return false;
+  }
+
+  if (!g_time_is_set) {
+    getNetworkTime();
+    if (!g_time_is_set)
+      Serial.println("Online, but error setting time.");
   }
 
   if (!g_MQTT_client.connected()) {
     int mqtt_client_status = g_MQTT_client.connect();
     if (mqtt_client_status != 0) {
-      Serial.print("MQTT client connect error" + GetDebugInfo() + ": ");
+      Serial.print("MQTT client connect error" + GetDebugInfo() + ": " + mqtt_message);
       Serial.println(g_MQTT_client.connectErrorString(mqtt_client_status));
       return false;
     }
   }
 
-  const String mqtt_message = createMQTTMessage(data);
-
   bool published = g_MQTT_environ_publisher.publish(mqtt_message.c_str());
   if (!published) {
     g_num_publish_errors++;
-    Serial.println("Failed to publish" + GetDebugInfo() + '.');
+    Serial.println("Failed to publish" + GetDebugInfo() + ": " + mqtt_message + '.');
     // There is currently a bug (in either Mosquitto or on our  end) where
     // the MQTT server (Mosquitto) retransmits the ACK packet. This means
     // our end receives the same ACK packet twice and the packet ID's are
