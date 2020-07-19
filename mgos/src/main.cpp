@@ -86,15 +86,14 @@ double CtoF(double C) {
  */
 bool ReadBME280(EnvironmentalData* data) {
   if (!g_BME280 || !g_BME280->isBME280()) {
-    LOG(LL_ERROR, ("uptime: %.2lf, NO BME280 SENSOR.", mgos_uptime()));
+    LOG(LL_ERROR, ("NO BME280 SENSOR."));
     return false;
   }
 
   struct mgos_bme280_data bme_data;
   int8_t result = g_BME280->read(bme_data);
   if (result != 0) {
-    LOG(LL_ERROR,
-        ("uptime: %.2lf Error %d reading BME280.", mgos_uptime(), result));
+    LOG(LL_ERROR, ("Error %d reading BME280.", result));
     return false;
   }
 
@@ -111,8 +110,7 @@ bool ReadBME280(EnvironmentalData* data) {
 bool PublishSensorData(const EnvironmentalData& data) {
   mgos_wifi_status wifi_status = mgos_wifi_get_status();
   if (wifi_status != MGOS_WIFI_IP_ACQUIRED) {
-    LOG(LL_WARN,
-        ("uptime: %.2lf, WiFi not connected: %d.", mgos_uptime(), wifi_status));
+    LOG(LL_WARN, ("WiFi not connected: %d.", wifi_status));
     return false;
   }
 
@@ -125,12 +123,11 @@ bool PublishSensorData(const EnvironmentalData& data) {
       mgos_mqtt_pub(mgos_sys_config_get_app_mqtt_topic(), mqtt_message.c_str(),
                     mqtt_message.size(), /*qos=*/1, /*retain=*/false);
   if (!packet_id) {
-    LOG(LL_ERROR,
-        ("uptime: %.2lf, Error publishing to MQTT broker.", mgos_uptime()));
+    LOG(LL_ERROR, ("Error publishing to MQTT broker."));
     return false;
   }
 
-  LOG(LL_INFO, ("Successfully published %s", mqtt_message.c_str()));
+  LOG(LL_INFO, ("Published %s", mqtt_message.c_str()));
   return true;
 }
 
@@ -161,8 +158,7 @@ void MQTTGlobalHandler(struct mg_connection* nc,
     return;
 
   if (ev == MG_EV_MQTT_CONNACK) {
-    LOG(LL_INFO,
-        ("uptime: %.2lf, Just connected to MQTT broker.", mgos_uptime()));
+    LOG(LL_INFO, ("Just connected to MQTT broker."));
     g_got_first_conn_ack = true;
     ReadSensorsCb(nullptr);
   }
