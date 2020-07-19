@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include <stdio.h>
+#include <math.h>
 
 #include <limits>
 #include <sstream>
@@ -30,6 +30,7 @@
 
 #include <BME280.h>
 #include <mgos.h>
+#include <mgos_dht.h>
 #include <mgos_mqtt.h>
 
 namespace {
@@ -57,6 +58,7 @@ struct EnvironmentalData {
 };
 
 BME280* g_BME280 = nullptr;
+struct mgos_dht* g_DHT22 = nullptr;
 bool g_got_first_conn_ack = false;
 
 #define UNUSED(expr) \
@@ -68,19 +70,19 @@ std::string EnvironmentalData::ToInfluxDBString() const {
   std::stringstream ss;
   bool has_field = false;
 
-  if (temperature != kInvalidValue) {
+  if (!isnan(temperature)) {
     if (has_field)
       ss << ',';
     ss << "temperature=" << temperature;
     has_field = true;
   }
-  if (humidity != kInvalidValue) {
+  if (!isnan(humidity)) {
     if (has_field)
       ss << ',';
     ss << "humidity=" << humidity;
     has_field = true;
   }
-  if (pressure != kInvalidValue) {
+  if (!isnan(pressure)) {
     if (has_field)
       ss << ',';
     ss << "pressure=" << pressure;
@@ -114,7 +116,7 @@ double CtoF(double C) {
  */
 bool ReadBME280(EnvironmentalData* data) {
   if (!g_BME280 || !g_BME280->isBME280()) {
-    LOG(LL_ERROR, ("NO BME280 SENSOR."));
+    LOG(LL_ERROR, ("No BME280 SENSOR."));
     return false;
   }
 
@@ -128,6 +130,27 @@ bool ReadBME280(EnvironmentalData* data) {
   data->temperature = CtoF(bme_data.temp);
   data->humidity = bme_data.humid;
   data->pressure = bme_data.press / 100.0;
+
+  return true;
+}
+
+bool ReadDHT22(EnvironmentalData* data) {
+  if (!g_DHT22) {
+    LOG(LL_ERROR, ("No DHT22 SENSOR."));
+    return false;
+  }
+
+  double temp = mgos_dht_get_temp(g_DHT22);
+  if (isnan(temp)) {
+    LOG(LL_ERROR, ("Error reading temp from DHT22 sensor."));
+    return false;
+  }
+  data->temperature = CtoF(temp);
+  data->humidity = mgos_dht_get_humidity(g_DHT22);
+  if (isnan(data->humidity)) {
+    LOG(LL_ERROR, ("Error reading humidity from DHT22 sensor."));
+    return false;
+  }
 
   return true;
 }
@@ -166,8 +189,18 @@ void ReadSensorsCb(void* arg) {
   UNUSED(arg);
 
   EnvironmentalData data;
-  if (!ReadBME280(&data))
+  bool have_data = false;
+
+  if (g_BME280)
+    have_data = ReadBME280(&data);
+
+  if (!have_data && g_DHT22)
+    have_data = ReadDHT22(&data);
+
+  if (!have_data) {
+    LOG(LL_WARN, ("No sensor data to publish."));
     return;
+  }
 
   PublishSensorData(data);
 }
@@ -195,7 +228,17 @@ void MQTTGlobalHandler(struct mg_connection* nc,
 }  // namespace
 
 enum mgos_app_init_result mgos_app_init(void) {
-  g_BME280 = new BME280(mgos_sys_config_get_app_bme280_addr());
+  if (mgos_sys_config_get_app_bme280_addr()) {
+    LOG(LL_INFO, ("Connecting to BME280 at 0x%x.",
+                  mgos_sys_config_get_app_bme280_addr()));
+    g_BME280 = new BME280(mgos_sys_config_get_app_bme280_addr());
+  }
+
+  if (mgos_sys_config_get_app_dht_pin()) {
+    LOG(LL_INFO, ("Connecting to DHT-22 on GPIO %d.",
+                  mgos_sys_config_get_app_dht_pin()));
+    g_DHT22 = mgos_dht_create(mgos_sys_config_get_app_dht_pin(), DHT22);
+  }
 
   mgos_mqtt_add_global_handler(MQTTGlobalHandler, nullptr);
 
