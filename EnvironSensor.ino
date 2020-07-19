@@ -40,6 +40,8 @@
 #else
   #include <WiFi.h>
 #endif
+#include <WiFiUdp.h>
+#include <NTPClient.h>
 
 #include "arduino_secrets.h"
 
@@ -142,6 +144,12 @@ int g_num_wifi_errors = 0;
 // The number of MQTT publish errors since connecting to WiFi.
 int g_num_publish_errors = 0;
 
+// Set to true if the clock has been set using NTP.
+bool g_time_is_set = false;
+
+uint32_t g_epoch_when_time_set = 0;
+
+uint16_t g_millis_when_time_set = 0;
 
 /**
  * Returns a WiFi status string for debugging purposes.
@@ -194,6 +202,19 @@ float CtoF(float C) {
 // Convert meters to feet.
 float MtoF(float M) {
   return M * 3.28084f;
+}
+
+void getNetworkTime() {
+  WiFiUDP ntpUDP;
+
+  NTPClient timeClient(ntpUDP);
+
+  if (!timeClient.update())
+    return;
+
+  g_time_is_set = true;
+  g_epoch_when_time_set = timeClient.getEpochTime();
+  g_millis_when_time_set = millis();
 }
 
 /**
@@ -422,6 +443,13 @@ void setup() {
   WiFi.begin(const_cast<char*>(kSSID), const_cast<char*>(kPASS));
 
   Serial.println("Setup complete");
+}
+
+uint32_t epochtime() {
+  if (!g_time_is_set)
+    return 0;
+
+  return g_epoch_when_time_set + (millis() - g_millis_when_time_set) / 1000;
 }
 
 void loop() {
