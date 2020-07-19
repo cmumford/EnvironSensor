@@ -25,6 +25,7 @@
 #include <stdio.h>
 
 #include <limits>
+#include <sstream>
 #include <string>
 
 #include <BME280.h>
@@ -64,14 +65,41 @@ bool g_got_first_conn_ack = false;
   } while (0)
 
 std::string EnvironmentalData::ToInfluxDBString() const {
-  const int kMessageLen = 120;
-  char mqtt_message[kMessageLen];
-  snprintf(mqtt_message, kMessageLen,
-           "temperature=%.1f,humidity=%.1f,pressure=%.1f", temperature,
-           humidity, pressure);
-  mqtt_message[kMessageLen - 1] = '\0';
+  std::stringstream ss;
+  bool has_field = false;
 
-  return mqtt_message;
+  if (temperature != kInvalidValue) {
+    if (has_field)
+      ss << ',';
+    ss << "temperature=" << temperature;
+    has_field = true;
+  }
+  if (humidity != kInvalidValue) {
+    if (has_field)
+      ss << ',';
+    ss << "humidity=" << humidity;
+    has_field = true;
+  }
+  if (pressure != kInvalidValue) {
+    if (has_field)
+      ss << ',';
+    ss << "pressure=" << pressure;
+    has_field = true;
+  }
+  if (eCO2 != -1) {
+    if (has_field)
+      ss << ',';
+    ss << "CO2=" << eCO2;
+    has_field = true;
+  }
+  if (TVOC != -1) {
+    if (has_field)
+      ss << ',';
+    ss << "TVOC=" << TVOC;
+    has_field = true;
+  }
+
+  return ss.str();
 }
 
 /**
