@@ -40,7 +40,11 @@ constexpr double kInvalidValue = std::numeric_limits<double>::quiet_NaN();
  */
 struct EnvironmentalData {
   /**
-   * Serialize this instance into a string in InfluxDB format.
+   * Serialize this instance into a string in InfluxDB format as field values.
+   *
+   * Invalid values are omitted.
+   *
+   * https://docs.influxdata.com/influxdb/v1.8/introduction/get-started/#writing-and-exploring-data
    */
   std::string ToInfluxDBString() const;
 
@@ -48,7 +52,6 @@ struct EnvironmentalData {
   double temperature = kInvalidValue;  // The temperature in °F.
   int eCO2 = -1;                       // Estimated carbon dioxide level (ppm).
   int TVOC = -1;                    // Total volatile organic compounds (ppb).
-  double altitude = kInvalidValue;  // Altitude above sea level (ft.).
   double pressure = kInvalidValue;  // Air pressure (hPA).
 };
 
