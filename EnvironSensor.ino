@@ -48,7 +48,7 @@
 namespace {
 
 // Delay between readings in milliseconds.
-const unsigned long kSensorReadingDelay = 60 * 1000;
+const unsigned long kSensorReadingDelay = 120 * 1000;
 
 #define SENSOR_RHT03   0  // A Temp/humidity sensor.
 #define SENSOR_BME280  1  // A Temp/humidity/pressure sensor.
