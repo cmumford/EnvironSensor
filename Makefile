@@ -17,7 +17,7 @@ default: verify
 format:
 	${CLANG_FORMAT} -i \
 		Arduino/EnvironSensor.ino \
-		mgos/fs/main.cpp \
+		mgos/src/main.cpp \
 
 .PHONY: verify
 verify:

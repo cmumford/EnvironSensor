@@ -10,8 +10,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -22,26 +22,27 @@
  * SOFTWARE.
  */
 
-#include <SparkFun_RHT03.h> // Temperature/Humidity sensor library.
-#include <SparkFunCCS811.h> // Air quality sensor library.
-#include <Wire.h>
-#include <Adafruit_MQTT_FONA.h>
+#include <Adafruit_BME280.h>
 #include <Adafruit_MQTT.h>
 #include <Adafruit_MQTT_Client.h>
+#include <Adafruit_MQTT_FONA.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
+#include <SparkFunCCS811.h>  // Air quality sensor library.
+#include <SparkFun_RHT03.h>  // Temperature/Humidity sensor library.
+#include <Wire.h>
 
-#if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_SAMD_NANO_33_IOT) || defined(ARDUINO_AVR_UNO_WIFI_REV2)
-  #include <WiFiNINA.h>
+#if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_SAMD_NANO_33_IOT) || \
+    defined(ARDUINO_AVR_UNO_WIFI_REV2)
+#include <WiFiNINA.h>
 #elif defined(ARDUINO_SAMD_MKR1000)
-  #include <WiFi101.h>
+#include <WiFi101.h>
 #elif defined(ARDUINO_ESP8266_ESP12) || defined(ARDUINO_ESP8266_NODEMCU)
-  #include <ESP8266WiFi.h>
+#include <ESP8266WiFi.h>
 #else
-  #include <WiFi.h>
+#include <WiFi.h>
 #endif
-#include <WiFiUdp.h>
 #include <NTPClient.h>
+#include <WiFiUdp.h>
 
 #include "arduino_secrets.h"
 
@@ -50,17 +51,16 @@ namespace {
 // Delay between readings in milliseconds.
 const unsigned long kSensorReadingDelay = 120 * 1000;
 
-#define SENSOR_RHT03   0  // A Temp/humidity sensor.
-#define SENSOR_BME280  1  // A Temp/humidity/pressure sensor.
-#define SENSOR_CCS811  0  // An air quality sensor (CO2/VOC).
-
+#define SENSOR_RHT03 0   // A Temp/humidity sensor.
+#define SENSOR_BME280 1  // A Temp/humidity/pressure sensor.
+#define SENSOR_CCS811 0  // An air quality sensor (CO2/VOC).
 
 #if SENSOR_RHT03
 
 // RHT03 data pin.
 const int RHT03_DATA_PIN = 23;
 
-#endif //  SENSOR_RHT03
+#endif  //  SENSOR_RHT03
 
 #if SENSOR_BME280
 
@@ -70,7 +70,6 @@ const float kSeaLevelPressureHPA = 1013.25f;
 const int BME280_ADDR = 0x76;
 
 #endif  // SENSOR_BME280
-
 
 #if SENSOR_CCS811
 
@@ -84,22 +83,22 @@ const String kSensorLocation = "office";
 const char* kSSID = SECRET_SSID;
 const char* kPASS = SECRET_PASS;
 const char kMQTTBroker[] = "10.0.9.116";
-const int  kMQTTPort = 1883;
+const int kMQTTPort = 1883;
 const char kMQTTTopic[] = "sensors/inside";
 
 /**
  * The data read from the various environmental sensors.
  */
 struct EnvironmentalData {
-  bool have_temp = false;    // True if the temp/humidity values are valid.
-  bool have_quality = false; // True if the air quality values are valid.
-  bool have_pressures = false; // True if air pressures are valud.
-  float humidity = 0.0f;     // The air relative humidity in % (0..100).
-  float temperature = 0.0f;  // The air temperature in °F.
-  int eCO2 = 0;              // Estimated carbon dioxide level (ppm).
-  int TVOC = 0;              // Total volatile organic compounds (ppb).
-  float altitude = 0.0f;     // Altitude above sea level (ft.).
-  float pressure = 0.0f;     // Air pressure (hPA).
+  bool have_temp = false;       // True if the temp/humidity values are valid.
+  bool have_quality = false;    // True if the air quality values are valid.
+  bool have_pressures = false;  // True if air pressures are valud.
+  float humidity = 0.0f;        // The air relative humidity in % (0..100).
+  float temperature = 0.0f;     // The air temperature in °F.
+  int eCO2 = 0;                 // Estimated carbon dioxide level (ppm).
+  int TVOC = 0;                 // Total volatile organic compounds (ppb).
+  float altitude = 0.0f;        // Altitude above sea level (ft.).
+  float pressure = 0.0f;        // Air pressure (hPA).
 };
 
 #if SENSOR_RHT03
@@ -127,11 +126,15 @@ CCS811 g_air_quality_sensor(CCS811_ADDR);
 WiFiClient g_WiFi_client;
 
 // The MQTT Client.
-Adafruit_MQTT_Client g_MQTT_client(&g_WiFi_client, kMQTTBroker,
-                                   kMQTTPort, /*username=*/"", /*key=*/"");
+Adafruit_MQTT_Client g_MQTT_client(&g_WiFi_client,
+                                   kMQTTBroker,
+                                   kMQTTPort,
+                                   /*username=*/"",
+                                   /*key=*/"");
 
 // Object that publishes a specific topic to the MQTT broker.
-Adafruit_MQTT_Publish g_MQTT_environ_publisher(&g_MQTT_client, kMQTTTopic,
+Adafruit_MQTT_Publish g_MQTT_environ_publisher(&g_MQTT_client,
+                                               kMQTTTopic,
                                                /*QOS=*/1);
 
 // The number of sensor readings attempted (but maybe not logged).
@@ -157,24 +160,29 @@ uint16_t g_millis_when_time_set = 0;
 const __FlashStringHelper* GetWiFiStatusString(int status) {
   switch (status) {
     case WL_CONNECTED:
-      return F("WL_CONNECTED");       // assigned when connected to a WiFi network
+      return F("WL_CONNECTED");  // assigned when connected to a WiFi network
     case WL_NO_SHIELD:
-      return F("WL_NO_SHIELD");       // assigned when no WiFi shield is present;
+      return F("WL_NO_SHIELD");  // assigned when no WiFi shield is present;
     case WL_IDLE_STATUS:
-      return F("WL_IDLE_STATUS");     // it is a temporary status assigned when WiFi.begin() is
-                                      // called and remains active until the number of attempts
-                                      // expires (resulting in WL_CONNECT_FAILED) or a connection
-                                      // is established (resulting in WL_CONNECTED);
+      return F(
+          "WL_IDLE_STATUS");  // it is a temporary status assigned when
+                              // WiFi.begin() is called and remains active until
+                              // the number of attempts expires (resulting in
+                              // WL_CONNECT_FAILED) or a connection is
+                              // established (resulting in WL_CONNECTED);
     case WL_NO_SSID_AVAIL:
-      return F("WL_NO_SSID_AVAIL");   // assigned when no SSID are available;
+      return F("WL_NO_SSID_AVAIL");  // assigned when no SSID are available;
     case WL_SCAN_COMPLETED:
-      return F("WL_SCAN_COMPLETED");  // assigned when the scan networks is completed;
+      return F("WL_SCAN_COMPLETED");  // assigned when the scan networks is
+                                      // completed;
     case WL_CONNECT_FAILED:
-      return F("WL_CONNECT_FAILED");  // assigned when the connection fails for all the attempts;
+      return F("WL_CONNECT_FAILED");  // assigned when the connection fails for
+                                      // all the attempts;
     case WL_CONNECTION_LOST:
-      return F("WL_CONNECTION_LOST"); // assigned when the connection is lost;
+      return F("WL_CONNECTION_LOST");  // assigned when the connection is lost;
     case WL_DISCONNECTED:
-      return F("WL_DISCONNECTED");    // assigned when disconnected from a network;
+      return F(
+          "WL_DISCONNECTED");  // assigned when disconnected from a network;
   }
   return F("Unknown");
 }
@@ -185,13 +193,12 @@ const __FlashStringHelper* GetWiFiStatusString(int status) {
 String GetDebugInfo() {
   return "[reading:" + String(g_num_readings) +
          ", wifi_err:" + String(g_num_wifi_errors) +
-         ", pub_err:" + String(g_num_publish_errors) +
-         ']';
+         ", pub_err:" + String(g_num_publish_errors) + ']';
 }
 
 // Convert Fahrenheit to Celsius.
 float FtoC(float F) {
-  return (F-32.0f) / 1.8f;
+  return (F - 32.0f) / 1.8f;
 }
 
 // Convert Celsius to Fahrenheit.
@@ -237,7 +244,7 @@ bool getTempHumidity(EnvironmentalData* data) {
   data->humidity = g_temp_humidity_sensor.humidity();
   data->have_temp = true;
 #elif SENSOR_BME280
-  data->temperature =  CtoF(g_BME280.readTemperature());
+  data->temperature = CtoF(g_BME280.readTemperature());
   data->humidity = g_BME280.readHumidity();
   data->have_temp = true;
 #endif
@@ -259,7 +266,7 @@ bool getAirQuality(EnvironmentalData* data) {
   // Set sensor humidity/temp to improve accuracy.
   if (data->have_temp) {
     g_air_quality_sensor.setEnvironmentalData(data->humidity,
-                                             FtoC(data->temperature));
+                                              FtoC(data->temperature));
   }
   g_air_quality_sensor.readAlgorithmResults();
   data->eCO2 = g_air_quality_sensor.getCO2();
@@ -277,7 +284,7 @@ bool getPressures(EnvironmentalData* data) {
   data->have_pressures = false;
 
 #if SENSOR_BME280
-  data->altitude =  MtoF(g_BME280.readAltitude(kSeaLevelPressureHPA));
+  data->altitude = MtoF(g_BME280.readAltitude(kSeaLevelPressureHPA));
   data->pressure = g_BME280.readPressure() / 100.0f;
   data->have_pressures = true;
 #endif
@@ -313,9 +320,8 @@ String createMQTTMessage(const EnvironmentalData& data) {
 
   bool have_value = false;
   if (data.have_temp) {
-    mqtt_message +=
-      String(" temperature=") + String(data.temperature, 2) +
-      String(",humidity=") + String(data.humidity, 1);
+    mqtt_message += String(" temperature=") + String(data.temperature, 2) +
+                    String(",humidity=") + String(data.humidity, 1);
     have_value = true;
   }
   if (data.have_quality) {
@@ -323,9 +329,8 @@ String createMQTTMessage(const EnvironmentalData& data) {
       mqtt_message += ",";
     else
       mqtt_message += " ";
-    mqtt_message +=
-      String("CO2=") + String(data.eCO2) +
-      String(",TVOC=") + String(data.TVOC);
+    mqtt_message += String("CO2=") + String(data.eCO2) + String(",TVOC=") +
+                    String(data.TVOC);
     have_value = true;
   }
 
@@ -334,9 +339,8 @@ String createMQTTMessage(const EnvironmentalData& data) {
       mqtt_message += ",";
     else
       mqtt_message += " ";
-    mqtt_message +=
-      String("altitude=") + String(data.altitude) +
-      String(",pressure=") + String(data.pressure);
+    mqtt_message += String("altitude=") + String(data.altitude) +
+                    String(",pressure=") + String(data.pressure);
     have_value = true;
   }
 
@@ -371,7 +375,8 @@ bool writeData(const EnvironmentalData& data) {
   if (!g_MQTT_client.connected()) {
     int mqtt_client_status = g_MQTT_client.connect();
     if (mqtt_client_status != 0) {
-      Serial.print("MQTT client connect error" + GetDebugInfo() + ": " + mqtt_message);
+      Serial.print("MQTT client connect error" + GetDebugInfo() + ": " +
+                   mqtt_message);
       Serial.println(g_MQTT_client.connectErrorString(mqtt_client_status));
       return false;
     }
@@ -380,7 +385,8 @@ bool writeData(const EnvironmentalData& data) {
   bool published = g_MQTT_environ_publisher.publish(mqtt_message.c_str());
   if (!published) {
     g_num_publish_errors++;
-    Serial.println("Failed to publish" + GetDebugInfo() + ": " + mqtt_message + '.');
+    Serial.println("Failed to publish" + GetDebugInfo() + ": " + mqtt_message +
+                   '.');
     // There is currently a bug (in either Mosquitto or on our  end) where
     // the MQTT server (Mosquitto) retransmits the ACK packet. This means
     // our end receives the same ACK packet twice and the packet ID's are
@@ -403,7 +409,7 @@ bool writeData(const EnvironmentalData& data) {
 void setup() {
   Serial.begin(9600);
   while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only.
+    ;  // wait for serial port to connect. Needed for native USB port only.
   }
 
   for (int i = 0; i < 20; i++) {
@@ -456,9 +462,9 @@ void loop() {
   EnvironmentalData data;
   if (getData(&data)) {
     if (writeData(data)) {
-      //Serial.println("Successfully logged environmental data.");
+      // Serial.println("Successfully logged environmental data.");
     } else {
-      //Serial.println("ERROR writing environmental data.");
+      // Serial.println("ERROR writing environmental data.");
     }
   } else {
     Serial.println("ERROR getting environmental data.");
