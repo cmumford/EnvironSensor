@@ -1,4 +1,4 @@
-# Copyright 2019 Christopher Mumford
+# Copyright 2020 Christopher Mumford
 # This code is licensed under MIT license (see LICENSE for details)
 
 CLANG_FORMAT=clang-format
