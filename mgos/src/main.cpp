@@ -59,8 +59,8 @@ struct EnvironmentalData {
 };
 
 BME280* g_BME280 = nullptr;
-struct mgos_dht* g_DHT22 = nullptr;
-struct mgos_ccs811* g_CCS811 = nullptr;
+mgos_dht* g_DHT22 = nullptr;
+mgos_ccs811* g_CCS811 = nullptr;
 bool g_got_first_conn_ack = false;
 
 #define UNUSED(expr) \
@@ -122,7 +122,7 @@ bool ReadBME280(EnvironmentalData* data) {
     return false;
   }
 
-  struct mgos_bme280_data bme_data;
+  mgos_bme280_data bme_data;
   int8_t result = g_BME280->read(bme_data);
   if (result != 0) {
     LOG(LL_ERROR, ("Error %d reading BME280.", result));
@@ -236,7 +236,7 @@ void ReadSensorsCb(void* arg) {
 /**
  * A global handler for MQTT messages.
  */
-void MQTTGlobalHandler(struct mg_connection* nc,
+void MQTTGlobalHandler(mg_connection* nc,
                        int ev,
                        void* ev_data MG_UD_ARG(void* user_data)) {
   UNUSED(nc);
@@ -269,7 +269,7 @@ void InitSensors() {
   if (mgos_sys_config_get_app_ccs811_addr()) {
     LOG(LL_INFO, ("Connecting to CCS811 at 0x%x.",
                   mgos_sys_config_get_app_ccs811_addr()));
-    struct mgos_i2c* i2c = mgos_i2c_get_global();
+    mgos_i2c* i2c = mgos_i2c_get_global();
     if (i2c)
       g_CCS811 = mgos_ccs811_create(i2c, mgos_sys_config_get_app_ccs811_addr());
     else
