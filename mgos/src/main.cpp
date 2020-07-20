@@ -30,6 +30,7 @@
 
 #include <BME280.h>
 #include <mgos.h>
+#include <mgos_ccs811.h>
 #include <mgos_dht.h>
 #include <mgos_mqtt.h>
 
@@ -52,13 +53,14 @@ struct EnvironmentalData {
 
   double humidity = kInvalidValue;     // The relative humidity in % (0..100).
   double temperature = kInvalidValue;  // The temperature in °F.
-  int eCO2 = -1;                       // Estimated carbon dioxide level (ppm).
-  int TVOC = -1;                    // Total volatile organic compounds (ppb).
+  double eCO2 = kInvalidValue;         // Estimated carbon dioxide level (ppm).
+  double TVOC = kInvalidValue;      // Total volatile organic compounds (ppb).
   double pressure = kInvalidValue;  // Air pressure (hPA).
 };
 
 BME280* g_BME280 = nullptr;
 struct mgos_dht* g_DHT22 = nullptr;
+struct mgos_ccs811* g_CCS811 = nullptr;
 bool g_got_first_conn_ack = false;
 
 #define UNUSED(expr) \
@@ -88,13 +90,13 @@ std::string EnvironmentalData::ToInfluxDBString() const {
     ss << "pressure=" << pressure;
     has_field = true;
   }
-  if (eCO2 != -1) {
+  if (!isnan(eCO2)) {
     if (has_field)
       ss << ',';
     ss << "CO2=" << eCO2;
     has_field = true;
   }
-  if (TVOC != -1) {
+  if (!isnan(TVOC)) {
     if (has_field)
       ss << ',';
     ss << "TVOC=" << TVOC;
@@ -155,6 +157,26 @@ bool ReadDHT22(EnvironmentalData* data) {
   return true;
 }
 
+bool ReadCCS811(EnvironmentalData* data) {
+  if (!g_CCS811) {
+    LOG(LL_ERROR, ("No CCS811 sensor."));
+    return false;
+  }
+
+  data->eCO2 = mgos_ccs811_get_eco2(g_CCS811);
+  if (isnan(data->eCO2)) {
+    LOG(LL_ERROR, ("Error reading eCO2 from CCS811 sensor."));
+    return false;
+  }
+  data->TVOC = mgos_ccs811_get_tvoc(g_CCS811);
+  if (isnan(data->TVOC)) {
+    LOG(LL_ERROR, ("Error reading TVOC from CCS811 sensor."));
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * Publish sensor data to the MQTT broker.
  */
@@ -197,6 +219,12 @@ void ReadSensorsCb(void* arg) {
   if (!have_data && g_DHT22)
     have_data = ReadDHT22(&data);
 
+  if (g_CCS811) {
+    bool success = ReadCCS811(&data);
+    if (!have_data)
+      have_data = success;
+  }
+
   if (!have_data) {
     LOG(LL_WARN, ("No sensor data to publish."));
     return;
@@ -225,9 +253,7 @@ void MQTTGlobalHandler(struct mg_connection* nc,
   }
 }
 
-}  // namespace
-
-enum mgos_app_init_result mgos_app_init(void) {
+void InitSensors() {
   if (mgos_sys_config_get_app_bme280_addr()) {
     LOG(LL_INFO, ("Connecting to BME280 at 0x%x.",
                   mgos_sys_config_get_app_bme280_addr()));
@@ -239,6 +265,22 @@ enum mgos_app_init_result mgos_app_init(void) {
                   mgos_sys_config_get_app_dht_pin()));
     g_DHT22 = mgos_dht_create(mgos_sys_config_get_app_dht_pin(), DHT22);
   }
+
+  if (mgos_sys_config_get_app_ccs811_addr()) {
+    LOG(LL_INFO, ("Connecting to CCS811 at 0x%x.",
+                  mgos_sys_config_get_app_ccs811_addr()));
+    struct mgos_i2c* i2c = mgos_i2c_get_global();
+    if (i2c)
+      g_CCS811 = mgos_ccs811_create(i2c, mgos_sys_config_get_app_ccs811_addr());
+    else
+      LOG(LL_INFO, ("No I2C addr"));
+  }
+}
+
+}  // namespace
+
+enum mgos_app_init_result mgos_app_init(void) {
+  InitSensors();
 
   mgos_mqtt_add_global_handler(MQTTGlobalHandler, nullptr);
 

@@ -19,10 +19,11 @@ filesystem:
   - fs
 
 config_schema:
-  - ["i2c.enable", false]
-  - ["i2c.scl_gpio", 5]
-  - ["i2c.sda_gpio", 4]
+  - ["i2c.enable", true]
+  - ["i2c.scl_gpio", 22]
+  - ["i2c.sda_gpio", 21]
   - ["app.bme280_addr", "i", 0x00, {title: "The BME280 sensor I2C address"}]
+  - ["app.ccs811_addr", "i", 0x5b, {title: "The CCS811 sensor I2C address"}]
   - ["app.dht_pin", "i", 23, {title: "The DHT22 GPIO pin (zero if not present)"}]
   - ["app.read_interval_ms", "i", 120000, {title: "The sensor read interval (ms)"}]
   - ["app.mqtt_topic", "s", "sensors/inside", {title: "The MQTT publish topic"}]
@@ -35,6 +36,7 @@ libs:
   - origin: https://github.com/mongoose-os-libs/bme280
   - origin: https://github.com/mongoose-os-libs/boards
   - origin: https://github.com/mongoose-os-libs/ca-bundle
+  - origin: https://github.com/mongoose-os-libs/ccs811-i2c
   - origin: https://github.com/mongoose-os-libs/dht
   - origin: https://github.com/mongoose-os-libs/i2c
   - origin: https://github.com/mongoose-os-libs/mqtt
