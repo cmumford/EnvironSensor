@@ -136,6 +136,9 @@ bool ReadBME280(EnvironmentalData* data) {
   return true;
 }
 
+/**
+ * Read temperature/humidity from the DHT-22 sensor.
+ */
 bool ReadDHT22(EnvironmentalData* data) {
   if (!g_DHT22) {
     LOG(LL_ERROR, ("No DHT22 SENSOR."));
@@ -157,6 +160,9 @@ bool ReadDHT22(EnvironmentalData* data) {
   return true;
 }
 
+/**
+ * Read from the CCS811 gas sensor.
+ */
 bool ReadCCS811(EnvironmentalData* data) {
   if (!g_CCS811) {
     LOG(LL_ERROR, ("No CCS811 sensor."));
@@ -253,6 +259,9 @@ void MQTTGlobalHandler(mg_connection* nc,
   }
 }
 
+/**
+ * Initialize all sensors.
+ */
 void InitSensors() {
   if (mgos_sys_config_get_app_bme280_addr()) {
     LOG(LL_INFO, ("Connecting to BME280 at 0x%x.",
