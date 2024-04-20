@@ -1,4 +1,5 @@
 #include <esp_log.h>
+#include <esp_system.h>
 
 #include "mybme280.h"
 
@@ -6,22 +7,6 @@ namespace {
 
 constexpr char TAG[] = "BME280";
 constexpr uint8_t kMaxSampleCount = 50;
-
-BME280_INTF_RET_TYPE ReadFunc(uint8_t reg_addr,
-                              uint8_t* reg_data,
-                              uint32_t len,
-                              void* intf_ptr) {
-  return BME280_INTF_RET_SUCCESS;
-}
-
-BME280_INTF_RET_TYPE WriteFunc(uint8_t reg_addr,
-                               const uint8_t* reg_data,
-                               uint32_t len,
-                               void* intf_ptr) {
-  return BME280_INTF_RET_SUCCESS;
-}
-
-void DelayUsFunc(uint32_t period, void* intf_ptr) {}
 
 bool IsError(int8_t status_code) {
   return status_code < 0;
@@ -33,11 +18,36 @@ bool IsWarning(int8_t status_code) {
 
 }  // namespace
 
-BME280::BME280() {
+// static
+BME280_INTF_RET_TYPE BME280::ReadFunc(uint8_t reg_addr,
+                                      uint8_t* reg_data,
+                                      uint32_t len,
+                                      void* intf_ptr) {
+  BME280* instance = static_cast<BME280*>(intf_ptr);
+  esp_err_t err = instance->i2c_.Read(reg_addr, reg_data, len);
+  return err == ESP_OK ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
+}
+
+// static
+BME280_INTF_RET_TYPE BME280::WriteFunc(uint8_t reg_addr,
+                                       const uint8_t* reg_data,
+                                       uint32_t len,
+                                       void* intf_ptr) {
+  BME280* instance = static_cast<BME280*>(intf_ptr);
+  esp_err_t err = instance->i2c_.Write(reg_addr, reg_data, len);
+  return err == ESP_OK ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
+}
+
+// static
+void BME280::DelayUsFunc(uint32_t period, void* intf_ptr) {
+  esp_rom_delay_us(period);
+}
+
+BME280::BME280(I2CMaster& i2c) : i2c_(i2c) {
   dev_.read = ReadFunc;
   dev_.write = WriteFunc;
   dev_.delay_us = DelayUsFunc;
-  dev_.intf_ptr = nullptr;
+  dev_.intf_ptr = this;
 }
 
 bool BME280::ReadSettings() {

@@ -3,14 +3,18 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "i2c.h"
 #include "mybme280.h"
 
 constexpr char TAG[] = "App";
 
 extern "C" void app_main(void) {
-  BME280 bme280;
+  I2CMaster i2c_master;
+  BME280 bme280(i2c_master);
 
   ESP_LOGI(TAG, "Starting app");
+
+  esp_err_t err = i2c_master.Init();
 
   if (!bme280.Init()) {
     ESP_LOGE(TAG, "BME280 init failure.");
