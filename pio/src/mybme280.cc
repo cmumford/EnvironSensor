@@ -1,5 +1,6 @@
 #include <esp_log.h>
 #include <esp_system.h>
+#include <i2clib/operation.h>
 
 #include "mybme280.h"
 
@@ -7,6 +8,8 @@ namespace {
 
 constexpr char TAG[] = "BME280";
 constexpr uint8_t kMaxSampleCount = 50;
+constexpr i2c::Address kSlaveAddress = {.address = BME280_I2C_ADDR_PRIM,
+                                        .addr_size = i2c::Address::Size::k7bit};
 
 bool IsError(int8_t status_code) {
   return status_code < 0;
@@ -24,8 +27,13 @@ BME280_INTF_RET_TYPE BME280::ReadFunc(uint8_t reg_addr,
                                       uint32_t len,
                                       void* intf_ptr) {
   BME280* instance = static_cast<BME280*>(intf_ptr);
-  esp_err_t err = instance->i2c_.Read(reg_addr, reg_data, len);
-  return err == ESP_OK ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
+  i2c::Operation op = instance->i2c_master_.CreateReadOp(
+      kSlaveAddress, reg_addr, "bme-read-cb");
+  i2c::Status s = op.Read(reg_data, len);
+  if (!s.ok())
+    return BME280_E_COMM_FAIL;
+  s = op.Execute();
+  return s.ok() ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
 }
 
 // static
@@ -34,8 +42,13 @@ BME280_INTF_RET_TYPE BME280::WriteFunc(uint8_t reg_addr,
                                        uint32_t len,
                                        void* intf_ptr) {
   BME280* instance = static_cast<BME280*>(intf_ptr);
-  esp_err_t err = instance->i2c_.Write(reg_addr, reg_data, len);
-  return err == ESP_OK ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
+  i2c::Operation op = instance->i2c_master_.CreateWriteOp(
+      kSlaveAddress, reg_addr, "bme-write-cb");
+  i2c::Status s = op.Write(reg_data, len);
+  if (!s.ok())
+    return BME280_E_COMM_FAIL;
+  s = op.Execute();
+  return s.ok() ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
 }
 
 // static
@@ -43,10 +56,11 @@ void BME280::DelayUsFunc(uint32_t period, void* intf_ptr) {
   esp_rom_delay_us(period);
 }
 
-BME280::BME280(I2CMaster& i2c) : i2c_(i2c) {
+BME280::BME280(i2c::Master& i2c_master) : i2c_master_(i2c_master) {
   dev_.read = ReadFunc;
   dev_.write = WriteFunc;
   dev_.delay_us = DelayUsFunc;
+  dev_.intf = BME280_I2C_INTF;
   dev_.intf_ptr = this;
 }
 
@@ -118,16 +132,14 @@ std::expected<double, int8_t> BME280::GetTemperature() {
 }
 
 bool BME280::Init() {
-  dev_.intf = BME280_I2C_INTF;
-
   int8_t s = bme280_init(&dev_);
 
   if (IsError(s)) {
-    ESP_LOGE(TAG, "Failure initializing BME280: %u", s);
+    ESP_LOGE(TAG, "Failure initializing BME280: %d", s);
     return false;
   }
   if (IsWarning(s)) {
-    ESP_LOGW(TAG, "Warning initializing BME280: %u", s);
+    ESP_LOGW(TAG, "Warning initializing BME280: %d", s);
   }
   // Always read the current settings before writing, especially when all the
   // configuration is not modified.
