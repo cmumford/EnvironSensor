@@ -102,7 +102,7 @@ bool BME280::CalcMeasurementDelay() {
   return true;
 }
 
-std::expected<double, int8_t> BME280::GetTemperature() {
+std::expected<BME280::Data, int8_t> BME280::GetData(uint8_t values) {
   for (int8_t i = 0; i < kMaxSampleCount; i++) {
     uint8_t status_reg;
     int8_t s = bme280_get_regs(BME280_REG_STATUS, &status_reg, 1, &dev_);
@@ -116,16 +116,23 @@ std::expected<double, int8_t> BME280::GetTemperature() {
 
       // Read the compensated data.
       bme280_data comp_data;
-      s = bme280_get_sensor_data(BME280_TEMP, &comp_data, &dev_);
+      s = bme280_get_sensor_data(values, &comp_data, &dev_);
       if (IsError(s)) {
         return std::unexpected(s);
       }
 
+      Data data;
+
 #ifdef BME280_DOUBLE_ENABLE
-      return comp_data.temperature;
+      data.pressure = comp_data.pressure;
+      data.temperature = comp_data.temperature;
+      data.humidity = comp_data.humidity;
 #else
-      return comp_data.temperature = comp_data.temperature / 100;
+      data.pressure = comp_data.pressure / 100;
+      data.temperature = comp_data.temperature / 100;
+      data.humidity = comp_data.humidity / 100;
 #endif
+      return data;
     }
   }
   return std::unexpected(BME280_E_COMM_FAIL);
