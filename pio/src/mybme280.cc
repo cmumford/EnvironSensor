@@ -94,8 +94,7 @@ bool BME280::CalcMeasurementDelay() {
   if (IsError(s))
     return false;
 
-  ESP_LOGD(TAG, "Measurement delay: %u usec",
-           static_cast<unsigned int>(period_));
+  ESP_LOGD(TAG, "Measurement delay: %" PRIu32 " usec", period_);
   return true;
 }
 
@@ -144,11 +143,6 @@ bool BME280::Init() {
   }
   if (IsWarning(s)) {
     ESP_LOGW(TAG, "Warning initializing BME280: %d", s);
-  }
-  // Always read the current settings before writing, especially when all the
-  // configuration is not modified.
-  if (!ReadSettings()) {
-    return false;
   }
   if (!SetSettings()) {
     return false;
