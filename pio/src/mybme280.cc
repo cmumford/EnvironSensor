@@ -11,11 +11,11 @@ constexpr uint8_t kMaxSampleCount = 50;
 constexpr i2c::Address kSlaveAddress = {.address = BME280_I2C_ADDR_PRIM,
                                         .addr_size = i2c::Address::Size::k7bit};
 
-bool IsError(int8_t status_code) {
+constexpr bool IsError(int8_t status_code) {
   return status_code < 0;
 }
 
-bool IsWarning(int8_t status_code) {
+constexpr bool IsWarning(int8_t status_code) {
   return status_code > 0;
 }
 
@@ -52,13 +52,26 @@ void BME280::DelayUsFunc(uint32_t period, void* intf_ptr) {
   esp_rom_delay_us(period);
 }
 
-BME280::BME280(i2c::Master& i2c_master) : i2c_master_(i2c_master) {
-  dev_.read = ReadFunc;
-  dev_.write = WriteFunc;
-  dev_.delay_us = DelayUsFunc;
-  dev_.intf = BME280_I2C_INTF;
-  dev_.intf_ptr = this;
-}
+BME280::BME280(i2c::Master& i2c_master)
+    : dev_({
+          .chip_id = 0,  // Will be retrieved from sensor.
+          .intf = BME280_I2C_INTF,
+          .intf_ptr = this,
+          .intf_rslt = BME280_INTF_RET_SUCCESS,
+          .read = ReadFunc,
+          .write = WriteFunc,
+          .delay_us = DelayUsFunc,
+          .calib_data = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0},
+      }),
+      settings_({
+          .osr_p = BME280_OVERSAMPLING_1X,
+          .osr_t = BME280_OVERSAMPLING_1X,
+          .osr_h = BME280_OVERSAMPLING_1X,
+          .filter = BME280_FILTER_COEFF_2,
+          .standby_time = BME280_STANDBY_TIME_0_5_MS,
+      }),
+      i2c_master_(i2c_master) {}
 
 bool BME280::ReadSettings() {
   int8_t s = bme280_get_sensor_settings(&settings_, &dev_);
@@ -71,18 +84,6 @@ bool BME280::SetSensorMode() {
 }
 
 bool BME280::SetSettings() {
-  /* Configuring the over-sampling rate, filter coefficient and standby time */
-  /* Overwrite the desired settings */
-  settings_.filter = BME280_FILTER_COEFF_2;
-
-  /* Over-sampling rate for humidity, temperature and pressure */
-  settings_.osr_h = BME280_OVERSAMPLING_1X;
-  settings_.osr_p = BME280_OVERSAMPLING_1X;
-  settings_.osr_t = BME280_OVERSAMPLING_1X;
-
-  /* Setting the standby time */
-  settings_.standby_time = BME280_STANDBY_TIME_0_5_MS;
-
   int8_t s =
       bme280_set_sensor_settings(BME280_SEL_ALL_SETTINGS, &settings_, &dev_);
   return !IsError(s);

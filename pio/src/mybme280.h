@@ -6,6 +6,7 @@
 
 #pragma once
 
+// Bitmask values for GetData.
 constexpr uint8_t kBME280Pressure = 1;
 constexpr uint8_t kBME280Temperature = 1 << 1;
 constexpr uint8_t kBME280Humidity = 1 << 2;
@@ -13,28 +14,33 @@ constexpr uint8_t kBME280All = 0x07;
 
 class BME280 {
  public:
+  // Sensor data.
   struct Data {
-    std::optional<double> pressure;
-    std::optional<double> temperature;
-    std::optional<double> humidity;
+    std::optional<double> pressure;     // Pressure in Pascals (Pa).
+    std::optional<double> temperature;  // Temperature in Celsius.
+    std::optional<double> humidity;     // Percent relative humidity.
   };
 
   BME280(i2c::Master& i2c_master);
 
   bool Init();
   // Retrieve the sensor data.
-  // values is a bitmask.
+  // |values| is a bitmask identifying the desired values to read from the
+  // sensor - See kBME280All above.
   std::expected<Data, int8_t> GetData(uint8_t values);
 
  private:
+  // A read callback function used by the BME280 library.
   static BME280_INTF_RET_TYPE ReadFunc(uint8_t reg_addr,
                                        uint8_t* reg_data,
                                        uint32_t len,
                                        void* intf_ptr);
+  // A write callback function used by the BME280 library.
   static BME280_INTF_RET_TYPE WriteFunc(uint8_t reg_addr,
                                         const uint8_t* reg_data,
                                         uint32_t len,
                                         void* intf_ptr);
+  // A delay callback function used by the BME280 library.
   static void DelayUsFunc(uint32_t period, void* intf_ptr);
 
   bool SetSettings();
