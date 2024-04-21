@@ -29,11 +29,9 @@ BME280_INTF_RET_TYPE BME280::ReadFunc(uint8_t reg_addr,
   BME280* instance = static_cast<BME280*>(intf_ptr);
   i2c::Operation op = instance->i2c_master_.CreateReadOp(
       kSlaveAddress, reg_addr, "bme-read-cb");
-  i2c::Status s = op.Read(reg_data, len);
-  if (!s.ok())
+  if (!op.Read(reg_data, len).ok())
     return BME280_E_COMM_FAIL;
-  s = op.Execute();
-  return s.ok() ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
+  return op.Execute().ok() ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
 }
 
 // static
@@ -44,11 +42,9 @@ BME280_INTF_RET_TYPE BME280::WriteFunc(uint8_t reg_addr,
   BME280* instance = static_cast<BME280*>(intf_ptr);
   i2c::Operation op = instance->i2c_master_.CreateWriteOp(
       kSlaveAddress, reg_addr, "bme-write-cb");
-  i2c::Status s = op.Write(reg_data, len);
-  if (!s.ok())
+  if (!op.Write(reg_data, len).ok())
     return BME280_E_COMM_FAIL;
-  s = op.Execute();
-  return s.ok() ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
+  return op.Execute().ok() ? BME280_INTF_RET_SUCCESS : BME280_E_COMM_FAIL;
 }
 
 // static
