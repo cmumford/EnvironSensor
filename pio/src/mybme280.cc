@@ -83,7 +83,7 @@ bool BME280::SetSensorMode() {
   return !IsError(s);
 }
 
-bool BME280::SetSettings() {
+bool BME280::WriteSettings() {
   int8_t s =
       bme280_set_sensor_settings(BME280_SEL_ALL_SETTINGS, &settings_, &dev_);
   return !IsError(s);
@@ -98,7 +98,7 @@ bool BME280::CalcMeasurementDelay() {
   return true;
 }
 
-std::expected<BME280::Data, int8_t> BME280::GetData(uint8_t values) {
+std::expected<BME280::Data, int8_t> BME280::ReadData(uint8_t values) {
   for (int8_t i = 0; i < kMaxSampleCount; i++) {
     uint8_t status_reg;
     int8_t s = bme280_get_regs(BME280_REG_STATUS, &status_reg, 1, &dev_);
@@ -120,13 +120,19 @@ std::expected<BME280::Data, int8_t> BME280::GetData(uint8_t values) {
       Data data;
 
 #ifdef BME280_DOUBLE_ENABLE
-      data.pressure = comp_data.pressure;
-      data.temperature = comp_data.temperature;
-      data.humidity = comp_data.humidity;
+      if (values & kBME280Pressure)
+        data.pressure = comp_data.pressure;
+      if (values & kBME280Temperature)
+        data.temperature = comp_data.temperature;
+      if (values & kBME280Humidity)
+        data.humidity = comp_data.humidity;
 #else
-      data.pressure = comp_data.pressure / 100;
-      data.temperature = comp_data.temperature / 100;
-      data.humidity = comp_data.humidity / 100;
+      if (values & kBME280Pressure)
+        data.pressure = comp_data.pressure / 100;
+      if (values & kBME280Temperature)
+        data.temperature = comp_data.temperature / 100;
+      if (values & kBME280Humidity)
+        data.humidity = comp_data.humidity / 100;
 #endif
       return data;
     }
@@ -136,7 +142,6 @@ std::expected<BME280::Data, int8_t> BME280::GetData(uint8_t values) {
 
 bool BME280::Init() {
   int8_t s = bme280_init(&dev_);
-
   if (IsError(s)) {
     ESP_LOGE(TAG, "Failure initializing BME280: %d", s);
     return false;
@@ -144,7 +149,7 @@ bool BME280::Init() {
   if (IsWarning(s)) {
     ESP_LOGW(TAG, "Warning initializing BME280: %d", s);
   }
-  if (!SetSettings()) {
+  if (!WriteSettings()) {
     return false;
   }
   if (!SetSensorMode()) {

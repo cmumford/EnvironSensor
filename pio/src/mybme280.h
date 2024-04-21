@@ -26,8 +26,9 @@ class BME280 {
   bool Init();
   // Retrieve the sensor data.
   // |values| is a bitmask identifying the desired values to read from the
-  // sensor - See kBME280All above.
-  std::expected<Data, int8_t> GetData(uint8_t values);
+  // sensor - See kBME280All above. If this function succeeds then all
+  // requested values will be set.
+  std::expected<Data, int8_t> ReadData(uint8_t values);
 
  private:
   // A read callback function used by the BME280 library.
@@ -43,7 +44,7 @@ class BME280 {
   // A delay callback function used by the BME280 library.
   static void DelayUsFunc(uint32_t period, void* intf_ptr);
 
-  bool SetSettings();
+  bool WriteSettings();
   bool ReadSettings();
   bool SetSensorMode();
   bool CalcMeasurementDelay();

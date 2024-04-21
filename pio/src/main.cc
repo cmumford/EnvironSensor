@@ -41,11 +41,14 @@ extern "C" void app_main(void) {
   }
 
   while (true) {
-    auto data = bme280.GetData(kBME280All);
+    auto data = bme280.ReadData(kBME280All);
     if (data.has_value()) {
-      ESP_LOGI(TAG, "Temperature: %.1f C", data->temperature.value());
-      ESP_LOGI(TAG, "Humidity: %.1f %%", data->humidity.value());
-      ESP_LOGI(TAG, "Pressure: %.1f hPa", data->pressure.value() / 100);
+      if (data->temperature.has_value())
+        ESP_LOGI(TAG, "Temperature: %.1f C", data->temperature.value());
+      if (data->humidity.has_value())
+        ESP_LOGI(TAG, "Humidity: %.1f %%", data->humidity.value());
+      if (data->pressure.has_value())
+        ESP_LOGI(TAG, "Pressure: %.1f hPa", data->pressure.value() / 100);
     } else {
       ESP_LOGE(TAG, "Failure getting sensor data: %u.", data.error());
     }
