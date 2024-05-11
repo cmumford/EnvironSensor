@@ -1,24 +1,18 @@
 ## Generating Preferences
 
-Application preferences are not committed to source, and are stored in NVS.
-These are generated using `generate-nvs.py` which produces a `preferences.bin`
-image file. The preference files are stored in the `prefs` directory, whihch
-is not committed to the repository as it contains sensitive data. This will
-need to be manually created before generating the NVS partition file.
+Application preferences are not hard-coded in the application. They are
+stored in NVS and are not committed to the repository as they contain
+sensitive data. The preference values are read from files in the `prefs`
+directory. These will need to be manually created before generating the
+NVS partition file. Each preference value is read from a unique file
+which should be obvious by looking at the `preferences.csv` file.
 
-The image file is not automatically updated. When prefs values change
-manually generate the file via:
+The NVS image file is not automatically updated during the build. When
+prefs values change, manually generate/flash the partition via:
 
 ```bash
-python3 generate-nvs.py
+./generate-nvs.sh
 ```
-
-And then flash it with a terminal that has sourced the esp-idf export.sh file using:
-
-```sh
-parttool.py -p /dev/cu.usbserial-0001 write_partition --partition-name=nvs --input=preferences.bin
-```
-
 **Note**: You may need to terminate VSCode (or at least the serial port monitor).
 
 More info on this process at
