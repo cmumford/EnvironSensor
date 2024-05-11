@@ -3,3 +3,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+preferences.bin
+prefs/
+sdkconfig.esp32dev.old
+sdkconfig.old
