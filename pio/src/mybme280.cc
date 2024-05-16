@@ -98,7 +98,7 @@ bool BME280::CalcMeasurementDelay() {
   return true;
 }
 
-std::expected<BME280::Data, int8_t> BME280::ReadData(uint8_t values) {
+std::expected<SensorData, int8_t> BME280::ReadData(uint8_t values) {
   for (int8_t i = 0; i < kMaxSampleCount; i++) {
     uint8_t status_reg;
     int8_t s = bme280_get_regs(BME280_REG_STATUS, &status_reg, 1, &dev_);
@@ -117,7 +117,7 @@ std::expected<BME280::Data, int8_t> BME280::ReadData(uint8_t values) {
         return std::unexpected(s);
       }
 
-      Data data;
+      SensorData data;
 
 #ifdef BME280_DOUBLE_ENABLE
       if (values & kBME280Pressure)

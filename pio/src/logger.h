@@ -1,11 +1,13 @@
 #pragma once
 
 #include "mybme280.h"
+#include "mybme680.h"
 
 #include <esp_event_base.h>
 #include <mqtt_client.h>
 
 #include "app_prefs.h"
+#include "sensor_data.h"
 
 class Logger {
  public:
@@ -13,7 +15,7 @@ class Logger {
   Logger();
 
   esp_err_t StartClient(const AppPrefs& prefs);
-  esp_err_t LogSensorData(const AppPrefs& prefs, const BME280::Data& data);
+  esp_err_t LogSensorData(const AppPrefs& prefs, const SensorData& data);
   bool connected() const { return connected_; }
 
  private:

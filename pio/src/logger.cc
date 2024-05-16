@@ -79,20 +79,27 @@ esp_err_t Logger::StartClient(const AppPrefs& prefs) {
   return esp_mqtt_client_start(client_);
 }
 
-esp_err_t Logger::LogSensorData(const AppPrefs& prefs,
-                                const BME280::Data& data) {
+esp_err_t Logger::LogSensorData(const AppPrefs& prefs, const SensorData& data) {
   if (!connected_)
     return ESP_ERR_INVALID_STATE;
   char buff[120];
   int len;
 
   if (data.temperature.has_value()) {
-    len =
-        std::snprintf(buff, sizeof(buff),
-                      "environment,location=%s "
-                      "temperature=%g,humidity=%g,pressure=%g",
-                      prefs.sensor_location().c_str(), data.temperature.value(),
-                      data.humidity.value(), data.pressure.value());
+    char gas_resistance[40];
+    if (data.gas_resistance.has_value()) {
+      snprintf(gas_resistance, sizeof(gas_resistance), ",gas_resistance=%g",
+               data.gas_resistance.value());
+    } else {
+      gas_resistance[0] = '\0';
+    }
+
+    len = std::snprintf(buff, sizeof(buff),
+                        "environment,location=%s "
+                        "temperature=%g,humidity=%g,pressure=%g%s",
+                        prefs.sensor_location().c_str(),
+                        data.temperature.value(), data.humidity.value(),
+                        data.pressure.value(), gas_resistance);
     char topic[80];
     std::snprintf(topic, sizeof(topic), "sensors/%s",
                   prefs.sensor_name().c_str());

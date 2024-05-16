@@ -50,7 +50,17 @@ void App::WifiEventHandler(void* event_handler_arg,
   }
 }
 
-App::App() : i2c_master_(), bme280_(i2c_master_) {}
+App::App()
+    : i2c_master_(),
+#if defined(DEVICE_BME280)
+      bme280_(i2c_master_)
+#elif defined(DEVICE_BME680)
+      bme680_(i2c_master_)
+#else
+#error "Unknown device";
+#endif
+{
+}
 
 esp_err_t App::ConnectToWifi() {
   esp_err_t err;
@@ -109,7 +119,13 @@ esp_err_t App::InitI2C() {
       .i2c_bus = I2C_NUM_0,
       .sda_gpio = 21,
       .scl_gpio = 22,
+#if defined(DEVICE_BME680)
+      .clk_speed = 400'000,  // BME680 supports standard/fast (100Kbps/400Kbps).
+#elif defined(DEVICE_BME280)
       .clk_speed = 1'000'000,  // Max BME280 I2C bus speed is 3.4 MHz.
+#else
+#error Unknown device
+#endif
       .sda_pullup_enable = true,
       .scl_pullup_enable = true,
   };
@@ -137,16 +153,28 @@ esp_err_t App::Init() {
     ESP_LOGE(TAG, "Error loading prefs: 0x%x", err);
     return ESP_FAIL;
   }
+  ESP_LOGI(TAG, "Initializing device %s/%s", prefs_.sensor_name().c_str(),
+           prefs_.sensor_location().c_str());
   err = InitI2C();
   if (err != ESP_OK) {
     ESP_LOGE(TAG, "I2C init failure: 0x%x", err);
     return ESP_FAIL;
   }
   ESP_LOGI(TAG, "I2C initialized.");
+#if defined(DEVICE_BME280)
   if (!bme280_.Init()) {
     ESP_LOGE(TAG, "BME280 init failure.");
     return ESP_FAIL;
   }
+#elif defined(DEVICE_BME680)
+  if (!bme680_.Init()) {
+    ESP_LOGE(TAG, "BME680 init failure.");
+    return ESP_FAIL;
+  }
+#else
+#error "Unknown device";
+#endif
+
   err = ConnectToWifi();
   if (err != ESP_OK) {
     ESP_LOGE(TAG, "Failure starting WIFI: 0x%x", err);
@@ -156,25 +184,54 @@ esp_err_t App::Init() {
   return ESP_OK;
 }
 
+#if defined(DEVICE_BME280)
+esp_err_t App::LogBME280() {
+  auto data = bme280_.ReadData(kBME280All);
+  if (data.has_value()) {
+    if (data->temperature.has_value())
+      ESP_LOGI(TAG, "Temperature: %.1f C", data->temperature.value());
+    if (data->humidity.has_value())
+      ESP_LOGI(TAG, "Humidity: %.1f %%", data->humidity.value());
+    if (data->pressure.has_value())
+      ESP_LOGI(TAG, "Pressure: %.1f hPa", data->pressure.value() / 100);
+    esp_err_t err = logger_.LogSensorData(prefs_, data.value());
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "Failure logging sensor data: 0x%x", err);
+    }
+    return err;
+  }
+  ESP_LOGE(TAG, "Failure getting sensor data: %d.", data.error());
+  return ESP_FAIL;
+}
+#endif  // defined(DEVICE_BME280)
+
+#if defined(DEVICE_BME680)
+esp_err_t App::LogBME680() {
+  auto data = bme680_.ReadData();
+  if (data.has_value()) {
+    return logger_.LogSensorData(prefs_, data.value());
+  }
+  ESP_LOGE(TAG, "Failure getting sensor data: %d.", data.error());
+  return ESP_FAIL;
+}
+#endif  // defined(DEVICE_BME680)
+
 esp_err_t App::Run() {
+  esp_err_t err;
+
   if (!initialized_)
     return ESP_FAIL;
   while (true) {
     if (logger_.connected()) {
-      auto data = bme280_.ReadData(kBME280All);
-      if (data.has_value()) {
-        if (data->temperature.has_value())
-          ESP_LOGI(TAG, "Temperature: %.1f C", data->temperature.value());
-        if (data->humidity.has_value())
-          ESP_LOGI(TAG, "Humidity: %.1f %%", data->humidity.value());
-        if (data->pressure.has_value())
-          ESP_LOGI(TAG, "Pressure: %.1f hPa", data->pressure.value() / 100);
-        esp_err_t err = logger_.LogSensorData(prefs_, data.value());
-        if (err != ESP_OK) {
-          ESP_LOGE(TAG, "Failure logging sensor data: 0x%x", err);
-        }
-      } else {
-        ESP_LOGE(TAG, "Failure getting sensor data: %d.", data.error());
+#if defined(DEVICE_BME280)
+      err = LogBME280();
+#elif defined(DEVICE_BME680)
+      err = LogBME680();
+#else
+#error "Unknown device";
+#endif
+      if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failure logging sensor data: 0x%x", err);
       }
     }
     vTaskDelay(15'000 / portTICK_PERIOD_MS);

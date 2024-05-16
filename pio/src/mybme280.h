@@ -4,6 +4,8 @@
 #include <bme280.h>
 #include <i2clib/master.h>
 
+#include "sensor_data.h"
+
 #pragma once
 
 // Bitmask values for GetData.
@@ -14,13 +16,6 @@ constexpr uint8_t kBME280All = 0x07;
 
 class BME280 {
  public:
-  // Sensor data.
-  struct Data {
-    std::optional<double> pressure;     // Pressure in Pascals (Pa).
-    std::optional<double> temperature;  // Temperature in Celsius.
-    std::optional<double> humidity;     // Percent relative humidity.
-  };
-
   BME280(i2c::Master& i2c_master);
 
   bool Init();
@@ -28,7 +23,7 @@ class BME280 {
   // |values| is a bitmask identifying the desired values to read from the
   // sensor - See kBME280All above. If this function succeeds then all
   // requested values will be set.
-  std::expected<Data, int8_t> ReadData(uint8_t values);
+  std::expected<SensorData, int8_t> ReadData(uint8_t values);
 
  private:
   // A read callback function used by the BME280 library.
