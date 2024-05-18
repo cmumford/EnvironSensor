@@ -1,7 +1,7 @@
 #pragma once
 
 #include "mybme280.h"
-#include "mybme680.h"
+#include "mybme68x.h"
 
 #include <esp_event_base.h>
 #include <mqtt_client.h>

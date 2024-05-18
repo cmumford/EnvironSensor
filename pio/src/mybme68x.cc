@@ -1,4 +1,4 @@
-#include "mybme680.h"
+#include "mybme68x.h"
 
 #include <cstring>
 
@@ -8,7 +8,7 @@
 
 namespace {
 
-constexpr char TAG[] = "BME680";
+constexpr char TAG[] = "BME68X";
 constexpr i2c::Address kSlaveAddress = {.address = BME68X_I2C_ADDR_LOW,
                                         .addr_size = i2c::Address::Size::k7bit};
 
@@ -23,11 +23,11 @@ constexpr bool IsWarning(int8_t status_code) {
 }  // namespace
 
 // static
-BME68X_INTF_RET_TYPE BME680::ReadFunc(uint8_t reg_addr,
+BME68X_INTF_RET_TYPE BME68X::ReadFunc(uint8_t reg_addr,
                                       uint8_t* reg_data,
                                       uint32_t len,
                                       void* intf_ptr) {
-  BME680* instance = static_cast<BME680*>(intf_ptr);
+  BME68X* instance = static_cast<BME68X*>(intf_ptr);
   i2c::Operation op = instance->i2c_master_.CreateReadOp(
       kSlaveAddress, reg_addr, "bme-read-cb");
   if (!op.Read(reg_data, len).ok())
@@ -36,11 +36,11 @@ BME68X_INTF_RET_TYPE BME680::ReadFunc(uint8_t reg_addr,
 }
 
 // static
-BME68X_INTF_RET_TYPE BME680::WriteFunc(uint8_t reg_addr,
+BME68X_INTF_RET_TYPE BME68X::WriteFunc(uint8_t reg_addr,
                                        const uint8_t* reg_data,
                                        uint32_t len,
                                        void* intf_ptr) {
-  BME680* instance = static_cast<BME680*>(intf_ptr);
+  BME68X* instance = static_cast<BME68X*>(intf_ptr);
   i2c::Operation op = instance->i2c_master_.CreateWriteOp(
       kSlaveAddress, reg_addr, "bme-write-cb");
   if (!op.Write(reg_data, len).ok())
@@ -49,11 +49,11 @@ BME68X_INTF_RET_TYPE BME680::WriteFunc(uint8_t reg_addr,
 }
 
 // static
-void BME680::DelayUsFunc(uint32_t period, void* intf_ptr) {
+void BME68X::DelayUsFunc(uint32_t period, void* intf_ptr) {
   esp_rom_delay_us(period);
 }
 
-BME680::BME680(i2c::Master& i2c_master)
+BME68X::BME68X(i2c::Master& i2c_master)
     : dev_({
           .chip_id = 0,
           .intf_ptr = this,
@@ -91,7 +91,7 @@ BME680::BME680(i2c::Master& i2c_master)
       }),
       i2c_master_(i2c_master) {}
 
-std::expected<SensorData, BME68X_INTF_RET_TYPE> BME680::ReadData() {
+std::expected<SensorData, BME68X_INTF_RET_TYPE> BME68X::ReadData() {
   BME68X_INTF_RET_TYPE rslt;
   rslt = bme68x_set_op_mode(BME68X_FORCED_MODE, &dev_);
   if (rslt != BME68X_OK)
@@ -125,7 +125,7 @@ std::expected<SensorData, BME68X_INTF_RET_TYPE> BME680::ReadData() {
               : std::nullopt};
 }
 
-BME68X_INTF_RET_TYPE BME680::InternalInit() {
+BME68X_INTF_RET_TYPE BME68X::InternalInit() {
   BME68X_INTF_RET_TYPE rslt;
 
   rslt = bme68x_init(&dev_);
@@ -147,10 +147,10 @@ BME68X_INTF_RET_TYPE BME680::InternalInit() {
   return BME68X_OK;
 }
 
-bool BME680::Init() {
+bool BME68X::Init() {
   BME68X_INTF_RET_TYPE err = InternalInit();
   if (err != BME68X_OK) {
-    ESP_LOGE(TAG, "Error initializing BME680: %d", err);
+    ESP_LOGE(TAG, "Error initializing BME68X: %d", err);
     return false;
   }
   return true;

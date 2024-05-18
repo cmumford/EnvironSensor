@@ -7,15 +7,15 @@
 #include <string_view>
 
 #undef DEVICE_BME280
-#define DEVICE_BME680
+#define DEVICE_BME68X
 
 #include "app_prefs.h"
 #include "logger.h"
 
 #if defined(DEVICE_BME280)
 #include "mybme280.h"
-#elif defined(DEVICE_BME680)
-#include "mybme680.h"
+#elif defined(DEVICE_BME68X)
+#include "mybme68x.h"
 #else
 #error "Unknown device";
 #endif
@@ -38,8 +38,8 @@ class App {
   esp_err_t StartLogger();
 #if defined(DEVICE_BME280)
   esp_err_t LogBME280();
-#elif defined(DEVICE_BME680)
-  esp_err_t LogBME680();
+#elif defined(DEVICE_BME68X)
+  esp_err_t LogBME68X();
 #else
 #error "Unknown device";
 #endif
@@ -47,8 +47,8 @@ class App {
   i2c::Master i2c_master_;
 #if defined(DEVICE_BME280)
   BME280 bme280_;
-#elif defined(DEVICE_BME680)
-  BME680 bme680_;
+#elif defined(DEVICE_BME68X)
+  BME68X bme68x_;
 #else
 #error "Unknown device";
 #endif

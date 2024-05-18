@@ -54,8 +54,8 @@ App::App()
     : i2c_master_(),
 #if defined(DEVICE_BME280)
       bme280_(i2c_master_)
-#elif defined(DEVICE_BME680)
-      bme680_(i2c_master_)
+#elif defined(DEVICE_BME68X)
+      bme68x_(i2c_master_)
 #else
 #error "Unknown device";
 #endif
@@ -119,8 +119,8 @@ esp_err_t App::InitI2C() {
       .i2c_bus = I2C_NUM_0,
       .sda_gpio = 21,
       .scl_gpio = 22,
-#if defined(DEVICE_BME680)
-      .clk_speed = 400'000,  // BME680 supports standard/fast (100Kbps/400Kbps).
+#if defined(DEVICE_BME68X)
+      .clk_speed = 400'000,  // BME68X supports standard/fast (100Kbps/400Kbps).
 #elif defined(DEVICE_BME280)
       .clk_speed = 1'000'000,  // Max BME280 I2C bus speed is 3.4 MHz.
 #else
@@ -166,9 +166,9 @@ esp_err_t App::Init() {
     ESP_LOGE(TAG, "BME280 init failure.");
     return ESP_FAIL;
   }
-#elif defined(DEVICE_BME680)
-  if (!bme680_.Init()) {
-    ESP_LOGE(TAG, "BME680 init failure.");
+#elif defined(DEVICE_BME68X)
+  if (!bme68x_.Init()) {
+    ESP_LOGE(TAG, "BME68X init failure.");
     return ESP_FAIL;
   }
 #else
@@ -205,16 +205,16 @@ esp_err_t App::LogBME280() {
 }
 #endif  // defined(DEVICE_BME280)
 
-#if defined(DEVICE_BME680)
-esp_err_t App::LogBME680() {
-  auto data = bme680_.ReadData();
+#if defined(DEVICE_BME68X)
+esp_err_t App::LogBME68X() {
+  auto data = bme68x_.ReadData();
   if (data.has_value()) {
     return logger_.LogSensorData(prefs_, data.value());
   }
   ESP_LOGE(TAG, "Failure getting sensor data: %d.", data.error());
   return ESP_FAIL;
 }
-#endif  // defined(DEVICE_BME680)
+#endif  // defined(DEVICE_BME68X)
 
 esp_err_t App::Run() {
   esp_err_t err;
@@ -225,8 +225,8 @@ esp_err_t App::Run() {
     if (logger_.connected()) {
 #if defined(DEVICE_BME280)
       err = LogBME280();
-#elif defined(DEVICE_BME680)
-      err = LogBME680();
+#elif defined(DEVICE_BME68X)
+      err = LogBME68X();
 #else
 #error "Unknown device";
 #endif
