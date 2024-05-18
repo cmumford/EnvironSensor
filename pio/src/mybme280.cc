@@ -65,9 +65,9 @@ BME280::BME280(i2c::Master& i2c_master)
                          0},
       }),
       settings_({
-          .osr_p = BME280_OVERSAMPLING_1X,
-          .osr_t = BME280_OVERSAMPLING_1X,
-          .osr_h = BME280_OVERSAMPLING_1X,
+          .osr_p = BME280_OVERSAMPLING_4X,
+          .osr_t = BME280_OVERSAMPLING_8X,
+          .osr_h = BME280_OVERSAMPLING_16X,
           .filter = BME280_FILTER_COEFF_2,
           .standby_time = BME280_STANDBY_TIME_0_5_MS,
       }),
