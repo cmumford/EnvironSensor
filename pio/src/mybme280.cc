@@ -52,6 +52,11 @@ void BME280::DelayUsFunc(uint32_t period, void* intf_ptr) {
   esp_rom_delay_us(period);
 }
 
+// static
+uint32_t BME280::MaxI2CClockSpeed() {
+  return 1'000'000;  // Max BME280 I2C bus speed is 3.4 MHz.
+}
+
 BME280::BME280(i2c::Master& i2c_master)
     : dev_({
           .chip_id = 0,  // Will be retrieved from sensor.

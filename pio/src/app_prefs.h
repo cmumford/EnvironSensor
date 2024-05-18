@@ -4,6 +4,12 @@
 
 #include <esp_err.h>
 
+enum class SensorType {
+  Unknown,
+  BME280,
+  BME680,
+};
+
 class AppPrefs {
  public:
   AppPrefs();
@@ -18,6 +24,7 @@ class AppPrefs {
   const std::string& wifi_password() const { return wifi_password_; }
   const std::string& sensor_name() const { return sensor_name_; }
   const std::string& sensor_location() const { return sensor_location_; }
+  SensorType sensor_type() const { return sensor_type_; }
 
  private:
   std::string mqtt_uri_;
@@ -27,4 +34,5 @@ class AppPrefs {
   std::string wifi_password_;
   std::string sensor_name_;
   std::string sensor_location_;
+  SensorType sensor_type_ = SensorType::Unknown;
 };

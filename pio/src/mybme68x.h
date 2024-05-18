@@ -5,26 +5,19 @@
 #include <bme68x.h>
 #include <i2clib/master.h>
 
-#include "sensor_data.h"
+#include "sensor.h"
 
 #pragma once
 
-// Bitmask values for GetData.
-constexpr uint8_t kBME68XPressure = 1;
-constexpr uint8_t kBME68XTemperature = 1 << 1;
-constexpr uint8_t kBME68XHumidity = 1 << 2;
-constexpr uint8_t kBME68XAll = 0x07;
-
-class BME68X {
+class BME68X : public Sensor {
  public:
+  static uint32_t MaxI2CClockSpeed();
+
   BME68X(i2c::Master& i2c_master);
 
-  bool Init();
-  // Retrieve the sensor data.
-  // |values| is a bitmask identifying the desired values to read from the
-  // sensor - See kBME68XAll above. If this function succeeds then all
-  // requested values will be set.
-  std::expected<SensorData, BME68X_INTF_RET_TYPE> ReadData();
+  virtual bool Init() override;
+  virtual std::expected<SensorData, BME68X_INTF_RET_TYPE> ReadData(
+      uint8_t values) override;
 
  private:
   // A read callback function used by the BME68X library.

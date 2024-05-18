@@ -5,5 +5,6 @@ mqtt-uri,file,string,prefs/mqtt-uri.txt
 mqtt-username,file,string,prefs/mqtt-username.txt
 sensor-location,file,string,prefs/sensor-location.txt
 sensor-name,file,string,prefs/sensor-name.txt
+sensor-type,file,string,prefs/sensor-type.txt
 wifi-password,file,string,prefs/wifi-password.txt
 wifi-ssid,file,string,prefs/wifi-ssid.txt

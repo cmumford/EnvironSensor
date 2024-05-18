@@ -17,6 +17,7 @@ constexpr std::string_view kWifiSsidKey = "wifi-ssid";
 constexpr std::string_view kWifiPasswordKey = "wifi-password";
 constexpr std::string_view kSensorNameKey = "sensor-name";
 constexpr std::string_view kSensorLocationKey = "sensor-location";
+constexpr std::string_view kSensorTypeKey = "sensor-type";
 
 constexpr char TAG[] = "prefs";
 
@@ -28,6 +29,7 @@ static_assert(kWifiSsidKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kWifiPasswordKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kSensorNameKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kSensorLocationKey.size() < NVS_KEY_NAME_MAX_SIZE);
+static_assert(kSensorTypeKey.size() < NVS_KEY_NAME_MAX_SIZE);
 
 class NvsCloser {
  public:
@@ -111,6 +113,15 @@ esp_err_t AppPrefs::Load() {
     sensor_location_ = std::move(res.value());
   else
     return res.error();
+  if ((res = ReadString(nvs, kSensorTypeKey)); res.has_value())
+    if (res.value() == "BME280")
+      sensor_type_ = SensorType::BME280;
+    else if (res.value() == "BME680")
+      sensor_type_ = SensorType::BME680;
+    else
+      ESP_LOGE(TAG, "Unknown sensor type: \"%s\"", res.value().c_str());
+  else
+    return res.error();
   return ESP_OK;
 }
 
@@ -141,5 +152,24 @@ esp_err_t AppPrefs::Save() {
   if ((err = nvs_set_str(nvs, kSensorLocationKey.data(),
                          sensor_location_.c_str())) != ESP_OK)
     return err;
+  {
+    std::string val;
+    switch (sensor_type_) {
+      case SensorType::BME280:
+        val = "BME280";
+        break;
+      case SensorType::BME680:
+        val = "BME680";
+        break;
+      case SensorType::Unknown:
+        // Will skip writing.
+        break;
+    }
+    if (!val.empty()) {
+      if ((err = nvs_set_str(nvs, kSensorTypeKey.data(), val.c_str())) !=
+          ESP_OK)
+        return err;
+    }
+  }
   return ESP_OK;
 }

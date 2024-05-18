@@ -1,7 +1,9 @@
 #include "app.h"
 
 #include <cstring>
+#include <memory>
 #include <string_view>
+#include <utility>
 
 #include <esp_log.h>
 #include <esp_wifi.h>
@@ -50,17 +52,7 @@ void App::WifiEventHandler(void* event_handler_arg,
   }
 }
 
-App::App()
-    : i2c_master_(),
-#if defined(DEVICE_BME280)
-      bme280_(i2c_master_)
-#elif defined(DEVICE_BME68X)
-      bme68x_(i2c_master_)
-#else
-#error "Unknown device";
-#endif
-{
-}
+App::App() : i2c_master_() {}
 
 esp_err_t App::ConnectToWifi() {
   esp_err_t err;
@@ -114,18 +106,12 @@ esp_err_t App::ConnectToWifi() {
   return ESP_OK;
 }
 
-esp_err_t App::InitI2C() {
-  constexpr i2c::Bus::InitParams params = {
+esp_err_t App::InitI2C(uint32_t bus_speed) {
+  const i2c::Bus::InitParams params = {
       .i2c_bus = I2C_NUM_0,
       .sda_gpio = 21,
       .scl_gpio = 22,
-#if defined(DEVICE_BME68X)
-      .clk_speed = 400'000,  // BME68X supports standard/fast (100Kbps/400Kbps).
-#elif defined(DEVICE_BME280)
-      .clk_speed = 1'000'000,  // Max BME280 I2C bus speed is 3.4 MHz.
-#else
-#error Unknown device
-#endif
+      .clk_speed = bus_speed,
       .sda_pullup_enable = true,
       .scl_pullup_enable = true,
   };
@@ -143,6 +129,21 @@ esp_err_t App::StartLogger() {
   return err;
 }
 
+uint32_t App::GetI2CBusSpeed() const {
+  switch (prefs_.sensor_type()) {
+    case SensorType::BME280:
+      return BME280::MaxI2CClockSpeed();
+      break;
+    case SensorType::BME680:
+      return BME68X::MaxI2CClockSpeed();
+      break;
+    case SensorType::Unknown:
+      std::unreachable();
+      break;
+  }
+  return 100'000;  // Standard speed
+}
+
 esp_err_t App::Init() {
   esp_err_t err;
 
@@ -155,25 +156,29 @@ esp_err_t App::Init() {
   }
   ESP_LOGI(TAG, "Initializing device %s/%s", prefs_.sensor_name().c_str(),
            prefs_.sensor_location().c_str());
-  err = InitI2C();
+  err = InitI2C(GetI2CBusSpeed());
   if (err != ESP_OK) {
     ESP_LOGE(TAG, "I2C init failure: 0x%x", err);
     return ESP_FAIL;
   }
   ESP_LOGI(TAG, "I2C initialized.");
-#if defined(DEVICE_BME280)
-  if (!bme280_.Init()) {
-    ESP_LOGE(TAG, "BME280 init failure.");
+  switch (prefs_.sensor_type()) {
+    case SensorType::BME280:
+      sensor_ = std::make_unique<BME280>(i2c_master_);
+      ESP_LOGI(TAG, "Sensor is a BME280");
+      break;
+    case SensorType::BME680:
+      sensor_ = std::make_unique<BME68X>(i2c_master_);
+      ESP_LOGI(TAG, "Sensor is a BME680");
+      break;
+    case SensorType::Unknown:
+      std::unreachable();
+      break;
+  }
+  if (!sensor_->Init()) {
+    ESP_LOGE(TAG, "Sensor init failure.");
     return ESP_FAIL;
   }
-#elif defined(DEVICE_BME68X)
-  if (!bme68x_.Init()) {
-    ESP_LOGE(TAG, "BME68X init failure.");
-    return ESP_FAIL;
-  }
-#else
-#error "Unknown device";
-#endif
 
   err = ConnectToWifi();
   if (err != ESP_OK) {
@@ -184,37 +189,14 @@ esp_err_t App::Init() {
   return ESP_OK;
 }
 
-#if defined(DEVICE_BME280)
-esp_err_t App::LogBME280() {
-  auto data = bme280_.ReadData(kBME280All);
-  if (data.has_value()) {
-    if (data->temperature.has_value())
-      ESP_LOGI(TAG, "Temperature: %.1f C", data->temperature.value());
-    if (data->humidity.has_value())
-      ESP_LOGI(TAG, "Humidity: %.1f %%", data->humidity.value());
-    if (data->pressure.has_value())
-      ESP_LOGI(TAG, "Pressure: %.1f hPa", data->pressure.value() / 100);
-    esp_err_t err = logger_.LogSensorData(prefs_, data.value());
-    if (err != ESP_OK) {
-      ESP_LOGE(TAG, "Failure logging sensor data: 0x%x", err);
-    }
-    return err;
-  }
-  ESP_LOGE(TAG, "Failure getting sensor data: %d.", data.error());
-  return ESP_FAIL;
-}
-#endif  // defined(DEVICE_BME280)
-
-#if defined(DEVICE_BME68X)
-esp_err_t App::LogBME68X() {
-  auto data = bme68x_.ReadData();
+esp_err_t App::LogSensor() {
+  auto data = sensor_->ReadData(kBME280All);
   if (data.has_value()) {
     return logger_.LogSensorData(prefs_, data.value());
   }
   ESP_LOGE(TAG, "Failure getting sensor data: %d.", data.error());
   return ESP_FAIL;
 }
-#endif  // defined(DEVICE_BME68X)
 
 esp_err_t App::Run() {
   esp_err_t err;
@@ -222,14 +204,8 @@ esp_err_t App::Run() {
   if (!initialized_)
     return ESP_FAIL;
   while (true) {
-    if (logger_.connected()) {
-#if defined(DEVICE_BME280)
-      err = LogBME280();
-#elif defined(DEVICE_BME68X)
-      err = LogBME68X();
-#else
-#error "Unknown device";
-#endif
+    if (logger_.connected() && sensor_) {
+      err = LogSensor();
       if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failure logging sensor data: 0x%x", err);
       }

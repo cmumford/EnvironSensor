@@ -53,6 +53,11 @@ void BME68X::DelayUsFunc(uint32_t period, void* intf_ptr) {
   esp_rom_delay_us(period);
 }
 
+// static
+uint32_t BME68X::MaxI2CClockSpeed() {
+  return 400'000;  // BME68X supports standard/fast (100Kbps/400Kbps).
+}
+
 BME68X::BME68X(i2c::Master& i2c_master)
     : dev_({
           .chip_id = 0,
@@ -91,7 +96,8 @@ BME68X::BME68X(i2c::Master& i2c_master)
       }),
       i2c_master_(i2c_master) {}
 
-std::expected<SensorData, BME68X_INTF_RET_TYPE> BME68X::ReadData() {
+std::expected<SensorData, BME68X_INTF_RET_TYPE> BME68X::ReadData(
+    uint8_t values) {
   BME68X_INTF_RET_TYPE rslt;
   rslt = bme68x_set_op_mode(BME68X_FORCED_MODE, &dev_);
   if (rslt != BME68X_OK)

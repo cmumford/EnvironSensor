@@ -4,21 +4,14 @@
 #include <esp_event_base.h>
 #include <i2clib/master.h>
 
+#include <memory>
 #include <string_view>
-
-#undef DEVICE_BME280
-#define DEVICE_BME68X
 
 #include "app_prefs.h"
 #include "logger.h"
 
-#if defined(DEVICE_BME280)
 #include "mybme280.h"
-#elif defined(DEVICE_BME68X)
 #include "mybme68x.h"
-#else
-#error "Unknown device";
-#endif
 
 class App {
  public:
@@ -34,24 +27,13 @@ class App {
                                void* event_data);
 
   esp_err_t ConnectToWifi();
-  esp_err_t InitI2C();
+  esp_err_t InitI2C(uint32_t bus_speed);
   esp_err_t StartLogger();
-#if defined(DEVICE_BME280)
-  esp_err_t LogBME280();
-#elif defined(DEVICE_BME68X)
-  esp_err_t LogBME68X();
-#else
-#error "Unknown device";
-#endif
+  esp_err_t LogSensor();
+  uint32_t GetI2CBusSpeed() const;
 
   i2c::Master i2c_master_;
-#if defined(DEVICE_BME280)
-  BME280 bme280_;
-#elif defined(DEVICE_BME68X)
-  BME68X bme68x_;
-#else
-#error "Unknown device";
-#endif
+  std::unique_ptr<Sensor> sensor_;
   bool initialized_ = false;
   AppPrefs prefs_;
   Logger logger_;

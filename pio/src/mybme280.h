@@ -4,26 +4,19 @@
 #include <bme280.h>
 #include <i2clib/master.h>
 
-#include "sensor_data.h"
+#include "sensor.h"
 
 #pragma once
 
-// Bitmask values for GetData.
-constexpr uint8_t kBME280Pressure = 1;
-constexpr uint8_t kBME280Temperature = 1 << 1;
-constexpr uint8_t kBME280Humidity = 1 << 2;
-constexpr uint8_t kBME280All = 0x07;
-
-class BME280 {
+class BME280 : public Sensor {
  public:
+  static uint32_t MaxI2CClockSpeed();
+
   BME280(i2c::Master& i2c_master);
 
-  bool Init();
-  // Retrieve the sensor data.
-  // |values| is a bitmask identifying the desired values to read from the
-  // sensor - See kBME280All above. If this function succeeds then all
-  // requested values will be set.
-  std::expected<SensorData, int8_t> ReadData(uint8_t values);
+  // Sensor:
+  virtual bool Init() override;
+  virtual std::expected<SensorData, int8_t> ReadData(uint8_t values) override;
 
  private:
   // A read callback function used by the BME280 library.
