@@ -1,6 +1,6 @@
 #include "mybme68x.h"
 
-#include <cstring>
+#include <cassert>
 
 #include <esp_log.h>
 #include <esp_system.h>
@@ -102,26 +102,20 @@ std::expected<SensorData, BME68X_INTF_RET_TYPE> BME68X::ReadData() {
       (gas_heater_conf_.heatr_dur_prof[0] * 1000);
   dev_.delay_us(delay_period_usec, dev_.intf_ptr);
 
-  bme68x_data data[3];  // `bme68x_get_data()` expects three of these.
-  std::memset(data, 0, sizeof(data));
+  bme68x_data data = {};
   uint8_t n_fields = 0;
-  rslt = bme68x_get_data(BME68X_FORCED_MODE, data, &n_fields, &dev_);
+  rslt = bme68x_get_data(BME68X_FORCED_MODE, &data, &n_fields, &dev_);
   if (rslt != BME68X_OK)
     return std::unexpected(rslt);
+  assert(n_fields == 1);
 
-  if (!n_fields) {
-    ESP_LOGW(TAG, "No new data");
-    return std::unexpected(BME68X_W_NO_NEW_DATA);
-  }
-
-  uint8_t idx = n_fields - 1;
   return SensorData{
-      .pressure = data[idx].pressure,
-      .temperature = data[idx].temperature,
-      .humidity = data[idx].humidity,
+      .pressure = data.pressure,
+      .temperature = data.temperature,
+      .humidity = data.humidity,
       .gas_resistance =
-          data[idx].status & (BME68X_HEAT_STAB_MSK | BME68X_GASM_VALID_MSK)
-              ? std::optional<float>(data[idx].gas_resistance)
+          data.status & (BME68X_HEAT_STAB_MSK | BME68X_GASM_VALID_MSK)
+              ? std::optional<float>(data.gas_resistance)
               : std::nullopt};
 }
 
