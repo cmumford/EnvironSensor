@@ -197,10 +197,16 @@ esp_err_t App::Init() {
 
   nvs_flash_init();
 
-  err = prefs_.Load();
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG, "Error loading prefs: 0x%x", err);
-    return ESP_FAIL;
+  auto [e, prefs_migrated] = prefs_.Load();
+  if (e != ESP_OK) {
+    ESP_LOGE(TAG, "Error loading prefs: 0x%x", e);
+    return e;
+  }
+  if (prefs_migrated) {
+    ESP_LOGI(TAG, "Prefs were migrated, saving");
+    err = prefs_.Save();
+    if (err = prefs_.Save(); err != ESP_OK)
+      ESP_LOGE(TAG, "Error saving prefs: 0x%x", err);
   }
   ESP_LOGI(TAG, "Initializing device %s/%s", prefs_.sensor_name().c_str(),
            prefs_.sensor_location().c_str());

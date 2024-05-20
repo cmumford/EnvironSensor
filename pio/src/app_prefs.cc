@@ -21,7 +21,10 @@ constexpr std::string_view kSensorTypeKey = "sensor-type";
 constexpr std::string_view kSleepDurationKey = "sleep-duration";
 
 constexpr char TAG[] = "prefs";
+constexpr uint16_t kMaxSleepSecs = 12 * 60 * 60;  // 12 hr.
+constexpr uint16_t kDefaultSleepSecs = 60;
 
+static_assert(kDefaultSleepSecs <= kMaxSleepSecs);
 static_assert(kNamespace.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kMqttUriKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kMqttUsernameKey.size() < NVS_KEY_NAME_MAX_SIZE);
@@ -76,45 +79,46 @@ std::expected<std::string, esp_err_t> ReadString(nvs_handle_t nvs,
 
 AppPrefs::AppPrefs() = default;
 
-esp_err_t AppPrefs::Load() {
+std::pair<esp_err_t, bool> AppPrefs::Load() {
   nvs_handle_t nvs;
   esp_err_t err;
+  bool migrated_value = false;
 
   ESP_LOGI(TAG, "Loading prefs");
   if ((err = nvs_open(kNamespace.data(), NVS_READONLY, &nvs)) != ESP_OK) {
-    return err;
+    return {err, false};
   }
   NvsCloser closer(nvs);
   std::expected<std::string, esp_err_t> res;
   if ((res = ReadString(nvs, kMqttUriKey)); res.has_value())
     mqtt_uri_ = std::move(res.value());
   else
-    return res.error();
+    return {res.error(), false};
   if ((res = ReadString(nvs, kMqttUsernameKey)); res.has_value())
     mqtt_username_ = std::move(res.value());
   else
-    return res.error();
+    return {res.error(), false};
   if ((res = ReadString(nvs, kMqttPasswordKey)); res.has_value())
     mqtt_password_ = std::move(res.value());
   else
-    return res.error();
+    return {res.error(), false};
   if ((res = ReadString(nvs, kWifiSsidKey)); res.has_value())
     wifi_ssid_ = std::move(res.value());
   else
-    return res.error();
+    return {res.error(), false};
   if ((res = ReadString(nvs, kWifiPasswordKey)); res.has_value())
     wifi_password_ = std::move(res.value());
   else
-    return res.error();
+    return {res.error(), false};
   if ((res = ReadString(nvs, kSensorNameKey)); res.has_value())
     sensor_name_ = std::move(res.value());
   else {
-    return res.error();
+    return {res.error(), false};
   }
   if ((res = ReadString(nvs, kSensorLocationKey)); res.has_value())
     sensor_location_ = std::move(res.value());
   else
-    return res.error();
+    return {res.error(), false};
   if ((res = ReadString(nvs, kSensorTypeKey)); res.has_value())
     if (res.value() == "BME280")
       sensor_type_ = SensorType::BME280;
@@ -123,12 +127,18 @@ esp_err_t AppPrefs::Load() {
     else
       ESP_LOGE(TAG, "Unknown sensor type: \"%s\"", res.value().c_str());
   else
-    return res.error();
-  if ((res = ReadString(nvs, kSleepDurationKey)); res.has_value())
+    return {res.error(), false};
+  if ((res = ReadString(nvs, kSleepDurationKey)); res.has_value()) {
     sleep_duration_secs_ = std::atoi(res.value().c_str());
-  else
-    return res.error();
-  return ESP_OK;
+    if (sleep_duration_secs_ > kMaxSleepSecs) {
+      sleep_duration_secs_ = kMaxSleepSecs;
+      migrated_value = true;
+    }
+  } else {
+    sleep_duration_secs_ = kDefaultSleepSecs;
+    migrated_value = true;
+  }
+  return {ESP_OK, migrated_value};
 }
 
 esp_err_t AppPrefs::Save() {

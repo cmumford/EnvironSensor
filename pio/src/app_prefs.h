@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 
 #include <esp_err.h>
 
@@ -15,7 +16,12 @@ class AppPrefs {
  public:
   AppPrefs();
 
-  esp_err_t Load();
+  // Load prefs from NVS and return error code and boolean to indicate that
+  // the preferences were safely migrated safely (but should probably be saved).
+  // Prefs will be migrated when new values are added to the app, but are not
+  // present in NVS and can be given a default value.
+  std::pair<esp_err_t, bool> Load();
+  // Save the preferences to NVS.
   esp_err_t Save();
 
   const std::string& mqtt_uri() const { return mqtt_uri_; }
