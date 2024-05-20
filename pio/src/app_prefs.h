@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 #include <esp_err.h>
@@ -24,6 +25,7 @@ class AppPrefs {
   const std::string& wifi_password() const { return wifi_password_; }
   const std::string& sensor_name() const { return sensor_name_; }
   const std::string& sensor_location() const { return sensor_location_; }
+  uint16_t sleep_duration_secs() const { return sleep_duration_secs_; }
   SensorType sensor_type() const { return sensor_type_; }
 
  private:
@@ -34,5 +36,6 @@ class AppPrefs {
   std::string wifi_password_;
   std::string sensor_name_;
   std::string sensor_location_;
+  uint16_t sleep_duration_secs_ = 0;  // zero = don't sleep.
   SensorType sensor_type_ = SensorType::Unknown;
 };

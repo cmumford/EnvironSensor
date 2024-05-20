@@ -6,6 +6,7 @@
 #include <utility>
 
 #include <esp_log.h>
+#include <esp_sleep.h>
 #include <esp_wifi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -16,9 +17,8 @@
 
 namespace {
 constexpr char TAG[] = "App";
-}
-
-int s_WifiConnectCount = 0;
+constexpr uint16_t kMaxReconnectCount = 5;
+}  // namespace
 
 // static
 void App::WifiEventHandler(void* event_handler_arg,
@@ -28,17 +28,23 @@ void App::WifiEventHandler(void* event_handler_arg,
   App* app = static_cast<App*>(event_handler_arg);
   switch (event_id) {
     case WIFI_EVENT_STA_START:
-      ESP_LOGI(TAG, "WIFI CONNECTING...");
+      ESP_LOGD(TAG, "WiFi connecting...");
       break;
     case WIFI_EVENT_STA_CONNECTED:
-      ESP_LOGI(TAG, "WIFI CONNECTED...");
+      ESP_LOGI(TAG, "WiFi connected...");
       break;
     case WIFI_EVENT_STA_DISCONNECTED:
-      ESP_LOGI(TAG, "WIFI Connection lost");
-      if (s_WifiConnectCount < 5) {
+      ESP_LOGI(TAG, "WiFi disconnected");
+      if (app->entering_sleep_)  // WiFi disabled when entering sleep.
+        return;
+      if (app->wifi_disconnect_count_ < kMaxReconnectCount) {
         esp_wifi_connect();
-        s_WifiConnectCount++;
-        ESP_LOGI(TAG, "Retrying to Connect...");
+        app->wifi_disconnect_count_++;
+        ESP_LOGI(TAG, "Retrying WiFi connection...");
+      } else {
+        // Too many connection attempts. Go to sleep and hope WiFi
+        // connection works next time.
+        app->EnterDeepSleep();
       }
       break;
     case IP_EVENT_STA_GOT_IP:
@@ -119,8 +125,50 @@ esp_err_t App::InitI2C(uint32_t bus_speed) {
   return s.ok() ? ESP_OK : ESP_FAIL;
 }
 
+void App::EnterDeepSleep() {
+  ESP_LOGI(TAG, "Sleeping for %u seconds", prefs_.sleep_duration_secs());
+  entering_sleep_ = true;
+
+  esp_err_t err = esp_wifi_stop();
+  if (err != ESP_OK)
+    ESP_LOGE(TAG, "Error 0x%x stopping WiFi", err);
+
+  uint64_t sleep_us =
+      static_cast<uint64_t>(prefs_.sleep_duration_secs()) * 1'000'000;
+  err = esp_sleep_enable_timer_wakeup(sleep_us);
+  if (err != ESP_OK)
+    ESP_LOGE(TAG, "Error enabling sleep timer wakeup: 0x%x", err);
+
+  esp_deep_sleep_start();
+}
+
+void App::ConnectedCallback(bool connected) {
+  ESP_LOGI(TAG, "Logger connected callback, connected:%c",
+           connected ? 'Y' : 'N');
+  if (connected) {
+    esp_err_t err = LogSensor();
+    if (err != ESP_OK)
+      EnterDeepSleep();
+  } else {
+    EnterDeepSleep();
+  }
+}
+
+void App::PublishCallback(int msg_id) {
+  ESP_LOGI(TAG, "Logger publish callback, msg id: %d", msg_id);
+  EnterDeepSleep();
+}
+
+void App::ErrorCallback() {
+  ESP_LOGE(TAG, "Logger MQTT error");
+  EnterDeepSleep();
+}
+
 esp_err_t App::StartLogger() {
-  esp_err_t err = logger_.StartClient(prefs_);
+  esp_err_t err = logger_.StartClient(
+      prefs_, std::bind(&App::ConnectedCallback, this, std::placeholders::_1),
+      std::bind(&App::PublishCallback, this, std::placeholders::_1),
+      std::bind(&App::ErrorCallback, this));
   if (err == ESP_OK) {
     ESP_LOGI(TAG, "Successfully started MQTT logger");
   } else {
@@ -199,17 +247,9 @@ esp_err_t App::LogSensor() {
 }
 
 esp_err_t App::Run() {
-  esp_err_t err;
-
   if (!initialized_)
     return ESP_FAIL;
   while (true) {
-    if (logger_.connected() && sensor_) {
-      err = LogSensor();
-      if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failure logging sensor data: 0x%x", err);
-      }
-    }
-    vTaskDelay(15'000 / portTICK_PERIOD_MS);
+    vTaskDelay(1'000 / portTICK_PERIOD_MS);
   }
 }

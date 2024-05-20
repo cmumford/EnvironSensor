@@ -18,6 +18,7 @@ constexpr std::string_view kWifiPasswordKey = "wifi-password";
 constexpr std::string_view kSensorNameKey = "sensor-name";
 constexpr std::string_view kSensorLocationKey = "sensor-location";
 constexpr std::string_view kSensorTypeKey = "sensor-type";
+constexpr std::string_view kSleepDurationKey = "sleep-duration";
 
 constexpr char TAG[] = "prefs";
 
@@ -30,6 +31,7 @@ static_assert(kWifiPasswordKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kSensorNameKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kSensorLocationKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kSensorTypeKey.size() < NVS_KEY_NAME_MAX_SIZE);
+static_assert(kSleepDurationKey.size() < NVS_KEY_NAME_MAX_SIZE);
 
 class NvsCloser {
  public:
@@ -122,6 +124,10 @@ esp_err_t AppPrefs::Load() {
       ESP_LOGE(TAG, "Unknown sensor type: \"%s\"", res.value().c_str());
   else
     return res.error();
+  if ((res = ReadString(nvs, kSleepDurationKey)); res.has_value())
+    sleep_duration_secs_ = std::atoi(res.value().c_str());
+  else
+    return res.error();
   return ESP_OK;
 }
 
@@ -171,5 +177,12 @@ esp_err_t AppPrefs::Save() {
         return err;
     }
   }
+  {
+    char buff[20];
+    std::snprintf(buff, sizeof(buff), "%u", sleep_duration_secs_);
+    if ((err = nvs_set_str(nvs, kSleepDurationKey.data(), buff)) != ESP_OK)
+      return err;
+  }
+
   return ESP_OK;
 }

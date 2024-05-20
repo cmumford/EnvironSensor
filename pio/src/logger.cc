@@ -24,14 +24,17 @@ void Logger::MQTTEventHandler(void* handler_args,
   switch (event->event_id) {
     case MQTT_EVENT_ERROR:
       ESP_LOGI(TAG, "MQTT error");
+      logger->error_callback_();
       break;
     case MQTT_EVENT_CONNECTED:
       ESP_LOGI(TAG, "MQTT connected");
       logger->connected_ = true;
+      logger->connect_callback_(logger->connected_);
       break;
     case MQTT_EVENT_DISCONNECTED:
       ESP_LOGI(TAG, "MQTT disconnected");
       logger->connected_ = false;
+      logger->connect_callback_(logger->connected_);
       break;
     case MQTT_EVENT_SUBSCRIBED:
       ESP_LOGI(TAG, "MQTT subscribed, msg_id=%d", event->msg_id);
@@ -41,6 +44,7 @@ void Logger::MQTTEventHandler(void* handler_args,
       break;
     case MQTT_EVENT_PUBLISHED:
       ESP_LOGI(TAG, "MQTT message published, msg_id=%d", event->msg_id);
+      logger->publish_callback_(event->msg_id);
       break;
     case MQTT_EVENT_DATA:
       ESP_LOGI(TAG, "MQTT data received, topic=%.*s, data=%.*s",
@@ -62,9 +66,15 @@ void Logger::MQTTEventHandler(void* handler_args,
   }
 }
 
-esp_err_t Logger::StartClient(const AppPrefs& prefs) {
+esp_err_t Logger::StartClient(const AppPrefs& prefs,
+                              ConnectCallback connect_callback,
+                              PublishedCallback publish_callback,
+                              MQTTErrorCallback error_callback) {
   if (connected_)
     return ESP_ERR_INVALID_STATE;
+  connect_callback_ = connect_callback;
+  publish_callback_ = publish_callback;
+  error_callback_ = error_callback;
   esp_mqtt_client_config_t mqtt_cfg;
   std::memset(&mqtt_cfg, 0, sizeof(mqtt_cfg));
   mqtt_cfg.broker.address.uri = prefs.mqtt_uri().c_str();

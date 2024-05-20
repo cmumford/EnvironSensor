@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "mybme280.h"
 #include "mybme68x.h"
 
@@ -11,10 +13,17 @@
 
 class Logger {
  public:
+  using ConnectCallback = std::function<void(bool connected)>;
+  using PublishedCallback = std::function<void(int msg_id)>;
+  using MQTTErrorCallback = std::function<void()>;
+
   // `prefs` is guaranteed to live longer than this instance.
   Logger();
 
-  esp_err_t StartClient(const AppPrefs& prefs);
+  esp_err_t StartClient(const AppPrefs& prefs,
+                        ConnectCallback connect_callback,
+                        PublishedCallback publish_callback,
+                        MQTTErrorCallback error_callback);
   esp_err_t LogSensorData(const AppPrefs& prefs, const SensorData& data);
   bool connected() const { return connected_; }
 
@@ -26,4 +35,7 @@ class Logger {
 
   bool connected_ = false;
   esp_mqtt_client_handle_t client_ = nullptr;
+  ConnectCallback connect_callback_;
+  PublishedCallback publish_callback_;
+  MQTTErrorCallback error_callback_;
 };

@@ -4,6 +4,7 @@
 #include <esp_event_base.h>
 #include <i2clib/master.h>
 
+#include <cstdint>
 #include <memory>
 #include <string_view>
 
@@ -31,10 +32,16 @@ class App {
   esp_err_t StartLogger();
   esp_err_t LogSensor();
   uint32_t GetI2CBusSpeed() const;
+  void ConnectedCallback(bool connected);
+  void PublishCallback(int msg_id);
+  void ErrorCallback();
+  void EnterDeepSleep();
 
   i2c::Master i2c_master_;
   std::unique_ptr<Sensor> sensor_;
   bool initialized_ = false;
   AppPrefs prefs_;
   Logger logger_;
+  bool entering_sleep_ = false;
+  uint16_t wifi_disconnect_count_ = 0;
 };
