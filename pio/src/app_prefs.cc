@@ -153,20 +153,20 @@ esp_err_t AppPrefs::Save() {
                          sensor_location_.c_str())) != ESP_OK)
     return err;
   {
-    std::string val;
+    const char* sensor_type_name = nullptr;
     switch (sensor_type_) {
       case SensorType::BME280:
-        val = "BME280";
+        sensor_type_name = "BME280";
         break;
       case SensorType::BME680:
-        val = "BME680";
+        sensor_type_name = "BME680";
         break;
       case SensorType::Unknown:
         // Will skip writing.
         break;
     }
-    if (!val.empty()) {
-      if ((err = nvs_set_str(nvs, kSensorTypeKey.data(), val.c_str())) !=
+    if (!sensor_type_name) {
+      if ((err = nvs_set_str(nvs, kSensorTypeKey.data(), sensor_type_name)) !=
           ESP_OK)
         return err;
     }
