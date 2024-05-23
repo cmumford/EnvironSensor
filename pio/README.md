@@ -28,3 +28,16 @@ esptool.py --port /dev/cu.usbserial-0001 erase_flash
 
 When this is done the NVS partition is erased, which will require reflashing to
 store the application preferences (see above).
+
+# Dumping NVS flash settings values
+
+To view the settings values stored in NVS on a connected device:
+```bash
+./dump-nvs.sh
+```
+
+To write them back to preferences files for a subsequent flash via
+`generate-nvs.sh`:
+```bash
+./dump-nvs.sh | ./nvs_to_prefs_files.py
+```

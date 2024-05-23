@@ -18,3 +18,12 @@ if [ $rc -ne 0 ]; then
   exit $rc
 fi
 
+NVS_TOOL=${IDF_PATH}/components/nvs_flash/nvs_partition_tool/nvs_tool.py
+
+${NVS_TOOL} --dump=minimal --color=auto --format=text nvs.bin | grep prefs:
+rc=$?
+if [ $rc -ne 0 ]; then
+  echo "Error dumping NVS partition."
+  exit $rc
+fi
+
