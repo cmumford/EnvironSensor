@@ -11,13 +11,13 @@ PARTITION_SIZE="0x6000"
 DEVICE="/dev/cu.usbserial-0001"
 
 NVS_PARTITION_GEN=${IDF_PATH}/components/nvs_flash/nvs_partition_generator/nvs_partition_gen.py
+
+${NVS_PARTITION_GEN} generate preferences.csv preferences.bin ${PARTITION_SIZE}
 rc=$?
 if [ $rc -ne 0 ]; then
   echo "Error generating NVS partition."
   exit $rc
 fi
-
-${NVS_PARTITION_GEN} generate preferences.csv preferences.bin ${PARTITION_SIZE}
 
 parttool.py -p $DEVICE write_partition --partition-name=nvs --input=preferences.bin
 rc=$?
