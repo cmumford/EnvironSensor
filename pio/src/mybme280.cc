@@ -99,29 +99,43 @@ BME280::BME280(i2c::Master& i2c_master)
       }),
       i2c_master_(i2c_master) {}
 
-bool BME280::ReadSettings() {
+esp_err_t BME280::ReadSettings() {
   int8_t s = bme280_get_sensor_settings(&settings_, &dev_);
-  return !IsError(s);
+  if (IsWarning(s)) {
+    ESP_LOGW(TAG, "bme280_get_sensor_settings returned %d", s);
+    return ESP_OK;
+  }
+  return BmeToEspErr(s);
 }
 
-bool BME280::SetSensorMode() {
+esp_err_t BME280::SetSensorMode() {
   int8_t s = bme280_set_sensor_mode(BME280_POWERMODE_NORMAL, &dev_);
-  return !IsError(s);
+  if (IsWarning(s)) {
+    ESP_LOGW(TAG, "bme280_set_sensor_mode returned %d", s);
+    return ESP_OK;
+  }
+  return BmeToEspErr(s);
 }
 
-bool BME280::WriteSettings() {
+esp_err_t BME280::WriteSettings() {
   int8_t s =
       bme280_set_sensor_settings(BME280_SEL_ALL_SETTINGS, &settings_, &dev_);
-  return !IsError(s);
+  if (IsWarning(s)) {
+    ESP_LOGW(TAG, "bme280_set_sensor_settings returned %d", s);
+    return ESP_OK;
+  }
+  return BmeToEspErr(s);
 }
 
-bool BME280::CalcMeasurementDelay() {
+esp_err_t BME280::CalcMeasurementDelay() {
   int8_t s = bme280_cal_meas_delay(&period_, &settings_);
   if (IsError(s))
-    return false;
+    return BmeToEspErr(s);
 
+  if (IsWarning(s))
+    ESP_LOGW(TAG, "bme280_cal_meas_delay returned %d", s);
   ESP_LOGD(TAG, "Measurement delay: %" PRIu32 " usec", period_);
-  return true;
+  return ESP_OK;
 }
 
 std::expected<SensorData, esp_err_t> BME280::ReadData(uint8_t values) {
@@ -179,25 +193,26 @@ esp_err_t BME280::EnterSleep() {
   }
 }
 
-bool BME280::Init() {
+esp_err_t BME280::Init() {
   int8_t s = bme280_init(&dev_);
   if (IsError(s)) {
     ESP_LOGE(TAG, "Failure initializing BME280: %d", s);
-    return false;
+    return BmeToEspErr(s);
   }
   if (IsWarning(s)) {
     ESP_LOGW(TAG, "Warning initializing BME280: %d", s);
   }
-  if (!WriteSettings()) {
+  esp_err_t err;
+  if (err = WriteSettings(); err != ESP_OK) {
+    return err;
+  }
+  if (err = SetSensorMode(); err != ESP_OK) {
     return false;
   }
-  if (!SetSensorMode()) {
-    return false;
-  }
-  if (!CalcMeasurementDelay()) {
+  if (err = CalcMeasurementDelay(); err != ESP_OK) {
     return false;
   }
 
   ESP_LOGI(TAG, "BME280 initialized");
-  return true;
+  return ESP_OK;
 }

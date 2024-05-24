@@ -240,9 +240,9 @@ esp_err_t App::Init() {
       std::unreachable();
       break;
   }
-  if (!sensor_->Init()) {
-    ESP_LOGE(TAG, "Sensor init failure.");
-    return ESP_FAIL;
+  if (err = sensor_->Init(); err != ESP_OK) {
+    ESP_LOGE(TAG, "Sensor init failure: 0x%x.", err);
+    return err;
   }
 
   err = ConnectToWifi();

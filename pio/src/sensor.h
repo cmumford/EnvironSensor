@@ -15,7 +15,7 @@ class Sensor {
  public:
   virtual ~Sensor() = default;
 
-  virtual bool Init() = 0;
+  virtual esp_err_t Init() = 0;
 
   // Retrieve the sensor data.
   // |values| is a bitmask identifying the desired values to read from the

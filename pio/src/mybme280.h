@@ -15,7 +15,7 @@ class BME280 : public Sensor {
   BME280(i2c::Master& i2c_master);
 
   // Sensor:
-  bool Init() override;
+  esp_err_t Init() override;
   std::expected<SensorData, esp_err_t> ReadData(uint8_t values) override;
   esp_err_t EnterSleep() override;
 
@@ -33,10 +33,10 @@ class BME280 : public Sensor {
   // A delay callback function used by the BME280 library.
   static void DelayUsFunc(uint32_t period, void* intf_ptr);
 
-  bool WriteSettings();
-  bool ReadSettings();
-  bool SetSensorMode();
-  bool CalcMeasurementDelay();
+  esp_err_t WriteSettings();
+  esp_err_t ReadSettings();
+  esp_err_t SetSensorMode();
+  esp_err_t CalcMeasurementDelay();
 
   bme280_dev dev_;
   bme280_settings settings_;

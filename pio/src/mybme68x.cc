@@ -174,11 +174,11 @@ BME68X_INTF_RET_TYPE BME68X::InternalInit() {
   return BME68X_OK;
 }
 
-bool BME68X::Init() {
+esp_err_t BME68X::Init() {
   BME68X_INTF_RET_TYPE err = InternalInit();
   if (err != BME68X_OK) {
     ESP_LOGE(TAG, "Error initializing BME68X: %d", err);
-    return false;
+    return BmeToEspErr(err);
   }
-  return true;
+  return ESP_OK;
 }
