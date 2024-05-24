@@ -92,7 +92,7 @@ esp_err_t Logger::StartClient(const AppPrefs& prefs,
 esp_err_t Logger::LogSensorData(const AppPrefs& prefs, const SensorData& data) {
   if (!connected_)
     return ESP_ERR_INVALID_STATE;
-  char buff[120];
+  char buff[200];
   int len;
 
   if (data.temperature.has_value()) {
@@ -105,12 +105,13 @@ esp_err_t Logger::LogSensorData(const AppPrefs& prefs, const SensorData& data) {
     }
 
     len = std::snprintf(buff, sizeof(buff),
-                        "environment,location=%s,sensor=%s "
+                        "environment,location=%s,sensor=%s,serial=%u "
                         "temperature=%g,humidity=%g,pressure=%g%s",
                         prefs.sensor_location().c_str(),
                         AppPrefs::SensorTypeName(prefs.sensor_type()).data(),
-                        data.temperature.value(), data.humidity.value(),
-                        data.pressure.value(), gas_resistance);
+                        prefs.serial_number(), data.temperature.value(),
+                        data.humidity.value(), data.pressure.value(),
+                        gas_resistance);
     char topic[80];
     std::snprintf(topic, sizeof(topic), "sensors/%s",
                   prefs.sensor_name().c_str());

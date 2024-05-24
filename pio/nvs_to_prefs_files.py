@@ -13,6 +13,7 @@ var_mappings = {
     "sensor-location": "prefs/sensor-location.txt",
     "sensor-name": "prefs/sensor-name.txt",
     "sensor-type": "prefs/sensor-type.txt",
+    "serial-number": "prefs/serial-number.txt",
     "sleep-duration": "prefs/sleep-duration.txt",
     "wifi-password": "prefs/wifi-password.txt",
     "wifi-ssid": "prefs/wifi-ssid.txt",

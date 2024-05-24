@@ -36,6 +36,7 @@ class AppPrefs {
   const std::string& sensor_location() const { return sensor_location_; }
   uint16_t sleep_duration_secs() const { return sleep_duration_secs_; }
   SensorType sensor_type() const { return sensor_type_; }
+  uint16_t serial_number() const { return serial_number_; }
 
  private:
   std::string mqtt_uri_;
@@ -47,4 +48,5 @@ class AppPrefs {
   std::string sensor_location_;
   uint16_t sleep_duration_secs_ = 0;  // zero = don't sleep.
   SensorType sensor_type_ = SensorType::Unknown;
+  uint16_t serial_number_ = 0;
 };

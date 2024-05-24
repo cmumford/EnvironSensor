@@ -19,10 +19,12 @@ constexpr std::string_view kSensorNameKey = "sensor-name";
 constexpr std::string_view kSensorLocationKey = "sensor-location";
 constexpr std::string_view kSensorTypeKey = "sensor-type";
 constexpr std::string_view kSleepDurationKey = "sleep-duration";
+constexpr std::string_view kSerialNumberKey = "serial-number";
 
 constexpr char TAG[] = "prefs";
 constexpr uint16_t kMaxSleepSecs = 12 * 60 * 60;  // 12 hr.
 constexpr uint16_t kDefaultSleepSecs = 60;
+constexpr uint16_t kDefaultSerialNumber = 999;
 
 static_assert(kDefaultSleepSecs <= kMaxSleepSecs);
 static_assert(kNamespace.size() < NVS_KEY_NAME_MAX_SIZE);
@@ -35,6 +37,7 @@ static_assert(kSensorNameKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kSensorLocationKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kSensorTypeKey.size() < NVS_KEY_NAME_MAX_SIZE);
 static_assert(kSleepDurationKey.size() < NVS_KEY_NAME_MAX_SIZE);
+static_assert(kSerialNumberKey.size() < NVS_KEY_NAME_MAX_SIZE);
 
 class NvsCloser {
  public:
@@ -158,6 +161,16 @@ std::pair<esp_err_t, bool> AppPrefs::Load() {
     sleep_duration_secs_ = kDefaultSleepSecs;
     migrated_value = true;
   }
+  if ((res = ReadString(nvs, kSerialNumberKey)); res.has_value()) {
+    serial_number_ = std::atoi(res.value().c_str());
+    if (serial_number_ == 0) {
+      sleep_duration_secs_ = kDefaultSerialNumber;
+      migrated_value = true;
+    }
+  } else {
+    serial_number_ = kDefaultSerialNumber;
+    migrated_value = true;
+  }
   return {ESP_OK, migrated_value};
 }
 
@@ -207,12 +220,13 @@ esp_err_t AppPrefs::Save() {
         return err;
     }
   }
-  {
-    char buff[20];
-    std::snprintf(buff, sizeof(buff), "%u", sleep_duration_secs_);
-    if ((err = nvs_set_str(nvs, kSleepDurationKey.data(), buff)) != ESP_OK)
-      return err;
-  }
+  char buff[20];
+  std::snprintf(buff, sizeof(buff), "%u", sleep_duration_secs_);
+  if ((err = nvs_set_str(nvs, kSleepDurationKey.data(), buff)) != ESP_OK)
+    return err;
+  std::snprintf(buff, sizeof(buff), "%u", serial_number_);
+  if ((err = nvs_set_str(nvs, kSerialNumberKey.data(), buff)) != ESP_OK)
+    return err;
 
   return ESP_OK;
 }
