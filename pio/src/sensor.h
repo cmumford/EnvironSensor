@@ -21,7 +21,7 @@ class Sensor {
   // |values| is a bitmask identifying the desired values to read from the
   // sensor - See kBME280All above. If this function succeeds then all
   // requested values will be set.
-  virtual std::expected<SensorData, int8_t> ReadData(uint8_t values) = 0;
+  virtual std::expected<SensorData, esp_err_t> ReadData(uint8_t values) = 0;
 
   // Put the device in sleep mode.
   virtual esp_err_t EnterSleep() = 0;

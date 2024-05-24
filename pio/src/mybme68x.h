@@ -16,8 +16,7 @@ class BME68X : public Sensor {
   BME68X(i2c::Master& i2c_master);
 
   bool Init() override;
-  std::expected<SensorData, BME68X_INTF_RET_TYPE> ReadData(
-      uint8_t values) override;
+  std::expected<SensorData, esp_err_t> ReadData(uint8_t values) override;
   esp_err_t EnterSleep() override;
 
  private:

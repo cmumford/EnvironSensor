@@ -22,7 +22,7 @@ constexpr bool IsWarning(int8_t status_code) {
 
 esp_err_t BmeToEspErr(int8_t bme_err) {
   switch (bme_err) {
-    [[likely]] case BME68X_OK:
+    [[unlikely]] case BME68X_OK:
       return ESP_OK;
     case BME68X_E_NULL_PTR:
       return ESP_ERR_INVALID_ARG;
@@ -115,12 +115,11 @@ BME68X::BME68X(i2c::Master& i2c_master)
       }),
       i2c_master_(i2c_master) {}
 
-std::expected<SensorData, BME68X_INTF_RET_TYPE> BME68X::ReadData(
-    uint8_t values) {
+std::expected<SensorData, esp_err_t> BME68X::ReadData(uint8_t values) {
   BME68X_INTF_RET_TYPE rslt;
   rslt = bme68x_set_op_mode(BME68X_FORCED_MODE, &dev_);
   if (rslt != BME68X_OK)
-    return std::unexpected(rslt);
+    return std::unexpected(BmeToEspErr(rslt));
 
   uint32_t delay_period_usec =
       bme68x_get_meas_dur(BME68X_FORCED_MODE, &conf_, &dev_) +
@@ -131,7 +130,7 @@ std::expected<SensorData, BME68X_INTF_RET_TYPE> BME68X::ReadData(
   uint8_t n_fields = 0;
   rslt = bme68x_get_data(BME68X_FORCED_MODE, &data, &n_fields, &dev_);
   if (rslt != BME68X_OK)
-    return std::unexpected(rslt);
+    return std::unexpected(BmeToEspErr(rslt));
   assert(n_fields == 1);
 
   return SensorData{

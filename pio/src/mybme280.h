@@ -16,7 +16,7 @@ class BME280 : public Sensor {
 
   // Sensor:
   bool Init() override;
-  std::expected<SensorData, int8_t> ReadData(uint8_t values) override;
+  std::expected<SensorData, esp_err_t> ReadData(uint8_t values) override;
   esp_err_t EnterSleep() override;
 
  private:

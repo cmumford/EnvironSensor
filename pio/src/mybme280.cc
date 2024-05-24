@@ -19,6 +19,27 @@ constexpr bool IsWarning(int8_t status_code) {
   return status_code > 0;
 }
 
+esp_err_t BmeToEspErr(int8_t bme_err) {
+  switch (bme_err) {
+    [[unlikely]] case BME280_OK:
+      return ESP_OK;
+    case BME280_E_NULL_PTR:
+      return ESP_ERR_INVALID_ARG;
+    case BME280_E_INVALID_LEN:
+      return ESP_ERR_INVALID_SIZE;
+    case BME280_E_DEV_NOT_FOUND:
+      return ESP_ERR_NOT_FOUND;
+    case BME280_E_SLEEP_MODE_FAIL:
+      [[fallthrough]];
+    case BME280_E_NVM_COPY_FAILED:
+      [[fallthrough]];
+    case BME280_E_COMM_FAIL:
+      [[fallthrough]];
+    default:
+      return ESP_FAIL;
+  }
+}
+
 }  // namespace
 
 // static
@@ -103,12 +124,12 @@ bool BME280::CalcMeasurementDelay() {
   return true;
 }
 
-std::expected<SensorData, int8_t> BME280::ReadData(uint8_t values) {
+std::expected<SensorData, esp_err_t> BME280::ReadData(uint8_t values) {
   for (int8_t i = 0; i < kMaxSampleCount; i++) {
     uint8_t status_reg;
     int8_t s = bme280_get_regs(BME280_REG_STATUS, &status_reg, 1, &dev_);
     if (IsError(s)) {
-      return std::unexpected(s);
+      return std::unexpected(BmeToEspErr(s));
     }
 
     if (status_reg & BME280_STATUS_MEAS_DONE) {
@@ -119,7 +140,7 @@ std::expected<SensorData, int8_t> BME280::ReadData(uint8_t values) {
       bme280_data comp_data;
       s = bme280_get_sensor_data(values, &comp_data, &dev_);
       if (IsError(s)) {
-        return std::unexpected(s);
+        return std::unexpected(BmeToEspErr(s));
       }
 
       SensorData data;
@@ -142,7 +163,7 @@ std::expected<SensorData, int8_t> BME280::ReadData(uint8_t values) {
       return data;
     }
   }
-  return std::unexpected(BME280_E_COMM_FAIL);
+  return std::unexpected(ESP_FAIL);
 }
 
 esp_err_t BME280::EnterSleep() {
