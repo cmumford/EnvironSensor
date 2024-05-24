@@ -105,9 +105,10 @@ esp_err_t Logger::LogSensorData(const AppPrefs& prefs, const SensorData& data) {
     }
 
     len = std::snprintf(buff, sizeof(buff),
-                        "environment,location=%s "
+                        "environment,location=%s,sensor=%s "
                         "temperature=%g,humidity=%g,pressure=%g%s",
                         prefs.sensor_location().c_str(),
+                        AppPrefs::SensorTypeName(prefs.sensor_type()).data(),
                         data.temperature.value(), data.humidity.value(),
                         data.pressure.value(), gas_resistance);
     char topic[80];

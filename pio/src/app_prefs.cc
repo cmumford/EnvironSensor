@@ -77,6 +77,26 @@ std::expected<std::string, esp_err_t> ReadString(nvs_handle_t nvs,
 
 }  // namespace
 
+// static
+std::string_view AppPrefs::SensorTypeName(SensorType sensor_type) {
+  // These strings are logged to InfluxDB and used in UI.
+  // Changing them may invalidate Grafana dashboards.
+  constexpr std::string_view kSensorTypeBME280 = "BME280";
+  constexpr std::string_view kSensorTypeBME680 = "BME680";
+  constexpr std::string_view kSensorTypeUnknown = "unknown";
+
+  switch (sensor_type) {
+    case SensorType::BME280:
+      return kSensorTypeBME280;
+    case SensorType::BME680:
+      return kSensorTypeBME680;
+    case SensorType::Unknown:
+      return kSensorTypeUnknown;
+  }
+  std::unreachable();
+  return kSensorTypeUnknown;
+}
+
 AppPrefs::AppPrefs() = default;
 
 std::pair<esp_err_t, bool> AppPrefs::Load() {

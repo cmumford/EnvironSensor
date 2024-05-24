@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <esp_err.h>
@@ -14,6 +15,8 @@ enum class SensorType {
 
 class AppPrefs {
  public:
+  static std::string_view SensorTypeName(SensorType sensor_type);
+
   AppPrefs();
 
   // Load prefs from NVS and return error code and boolean to indicate that
