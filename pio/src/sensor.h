@@ -23,6 +23,9 @@ class Sensor {
   // requested values will be set.
   virtual std::expected<SensorData, int8_t> ReadData(uint8_t values) = 0;
 
+  // Put the device in sleep mode.
+  virtual esp_err_t EnterSleep() = 0;
+
  protected:
   Sensor() = default;
 };

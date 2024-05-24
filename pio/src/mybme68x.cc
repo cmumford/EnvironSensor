@@ -20,6 +20,25 @@ constexpr bool IsWarning(int8_t status_code) {
   return status_code > 0;
 }
 
+esp_err_t BmeToEspErr(int8_t bme_err) {
+  switch (bme_err) {
+    [[likely]] case BME68X_OK:
+      return ESP_OK;
+    case BME68X_E_NULL_PTR:
+      return ESP_ERR_INVALID_ARG;
+    case BME68X_E_DEV_NOT_FOUND:
+      return ESP_ERR_NOT_FOUND;
+    case BME68X_E_INVALID_LENGTH:
+      return ESP_ERR_INVALID_SIZE;
+    case BME68X_E_COM_FAIL:
+      [[fallthrough]];
+    case BME68X_E_SELF_TEST:
+      [[fallthrough]];
+    default:
+      return ESP_FAIL;
+  }
+}
+
 }  // namespace
 
 // static
@@ -123,6 +142,15 @@ std::expected<SensorData, BME68X_INTF_RET_TYPE> BME68X::ReadData(
           data.status & (BME68X_HEAT_STAB_MSK | BME68X_GASM_VALID_MSK)
               ? std::optional<float>(data.gas_resistance)
               : std::nullopt};
+}
+
+esp_err_t BME68X::EnterSleep() {
+  int8_t rc = bme68x_set_op_mode(BME68X_SLEEP_MODE, &dev_);
+  if (rc == BME68X_OK)
+    return ESP_OK;
+
+  ESP_LOGE(TAG, "Error %d entering sleep", rc);
+  return BmeToEspErr(rc);
 }
 
 BME68X_INTF_RET_TYPE BME68X::InternalInit() {

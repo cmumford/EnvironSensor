@@ -145,6 +145,19 @@ std::expected<SensorData, int8_t> BME280::ReadData(uint8_t values) {
   return std::unexpected(BME280_E_COMM_FAIL);
 }
 
+esp_err_t BME280::EnterSleep() {
+  int ret = bme280_set_sensor_mode(BME280_POWERMODE_SLEEP, &dev_);
+  if (ret == 0) {
+    return ESP_OK;
+  } else if (ret < 0) {
+    ESP_LOGE(TAG, "Got error entering sleep");
+    return ESP_FAIL;
+  } else {
+    ESP_LOGW(TAG, "Got warning entering sleep");
+    return ESP_OK;
+  }
+}
+
 bool BME280::Init() {
   int8_t s = bme280_init(&dev_);
   if (IsError(s)) {

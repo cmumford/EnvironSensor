@@ -15,8 +15,9 @@ class BME280 : public Sensor {
   BME280(i2c::Master& i2c_master);
 
   // Sensor:
-  virtual bool Init() override;
-  virtual std::expected<SensorData, int8_t> ReadData(uint8_t values) override;
+  bool Init() override;
+  std::expected<SensorData, int8_t> ReadData(uint8_t values) override;
+  esp_err_t EnterSleep() override;
 
  private:
   // A read callback function used by the BME280 library.

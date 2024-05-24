@@ -126,17 +126,28 @@ esp_err_t App::InitI2C(uint32_t bus_speed) {
 }
 
 void App::EnterDeepSleep() {
+  esp_err_t err;
   ESP_LOGI(TAG, "Sleeping for %u seconds", prefs_.sleep_duration_secs());
   entering_sleep_ = true;
 
-  esp_err_t err = esp_wifi_stop();
-  if (err != ESP_OK)
+  // Sleep the sensor. If it is kept on 100% of the time then that could warm
+  // the sensor and affect sensor readings. The BME280 handling mounting and
+  // soldering instructions says:
+  //
+  //   "The sensor should be not more than 10% in the active state to avoid self
+  //   heating".
+  err = sensor_->EnterSleep();
+  if (err == ESP_OK)
+    ESP_LOGI(TAG, "Sensor is asleep");
+  else
+    ESP_LOGE(TAG, "Error 0x%x putting sensor to sleep", err);
+
+  if (err = esp_wifi_stop(); err != ESP_OK)
     ESP_LOGE(TAG, "Error 0x%x stopping WiFi", err);
 
   uint64_t sleep_us =
       static_cast<uint64_t>(prefs_.sleep_duration_secs()) * 1'000'000;
-  err = esp_sleep_enable_timer_wakeup(sleep_us);
-  if (err != ESP_OK)
+  if (err = esp_sleep_enable_timer_wakeup(sleep_us); err != ESP_OK)
     ESP_LOGE(TAG, "Error enabling sleep timer wakeup: 0x%x", err);
 
   esp_deep_sleep_start();
